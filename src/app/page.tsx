@@ -6,7 +6,7 @@ import { useCareerStore } from '@/store/career';
 import CareerSuiteApp from '@/components/CareerSuiteApp';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://thoughtpilot-ai-backend-production.up.railway.app';
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.thoughtpilotai.com';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://careers.thoughtpilotai.com';
 
 export default function Page() {
   const { handoff, setHandoff, authLoading, setAuthLoading } = useCareerStore();
@@ -81,7 +81,7 @@ export default function Page() {
           </p>
 
           <a
-            href={`${APP_URL}/login?redirect=${encodeURIComponent('https://app.thoughtpilotai.com')}`}
+            href={`https://thoughtpilotai.com/login?redirect=${encodeURIComponent('https://careers.thoughtpilotai.com')}`}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 10,
               background: 'var(--accent)', color: '#fff',

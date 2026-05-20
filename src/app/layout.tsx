@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'ThoughtPilot Career Suite',
     description: 'Analyse, optimise, and export your CV with AI.',
-    url: 'https://app.thoughtpilotai.com',
+    url: 'https://careers.thoughtpilotai.com',
     siteName: 'ThoughtPilot',
   },
 };
