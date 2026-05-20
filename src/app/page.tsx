@@ -13,18 +13,28 @@ export default function Page() {
 
   useEffect(() => {
     const init = async () => {
-      const token = Cookies.get('tp_token');
+      const params = new URLSearchParams(window.location.search);
+      const urlToken = params.get('token');
+
+      if (urlToken) {
+        Cookies.set('tp_token', urlToken, { expires: 7 });
+        // Clean token from URL without reload
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+
+      const token = urlToken || Cookies.get('tp_token');
       if (!token) {
         setAuthLoading(false);
         return;
       }
+
       try {
         const { data } = await axios.get(`${API}/api/career/handoff`, {
+          headers: { Authorization: `Bearer ${token}` },
           withCredentials: true,
         });
         setHandoff(data);
       } catch {
-        // Token invalid / expired — treat as logged out
         Cookies.remove('tp_token');
       } finally {
         setAuthLoading(false);
