@@ -81,7 +81,7 @@ export default function Page() {
           </p>
 
           <a
-            href={`https://thoughtpilotai.com/login?redirect=${encodeURIComponent('https://careers.thoughtpilotai.com')}`}
+            href={`https://app.thoughtpilotai.com/login?redirect=${encodeURIComponent('https://careers.thoughtpilotai.com')}`}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 10,
               background: 'var(--accent)', color: '#fff',
