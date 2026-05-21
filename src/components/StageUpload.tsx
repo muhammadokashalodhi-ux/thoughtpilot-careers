@@ -1,81 +1,63 @@
 'use client';
-import { useRef, useState, DragEvent, useEffect } from 'react';
+import { useRef, useState, DragEvent } from 'react';
 import { useCareerStore } from '@/store/career';
 
-// Load PDF.js from CDN dynamically
-async function extractPDFText(file: File): Promise<string> {
+function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        const typedArray = new Uint8Array(e.target?.result as ArrayBuffer);
-
-        // Dynamically load pdf.js from CDN
-        const pdfjsLib = await import(
-          /* webpackIgnore: true */
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js' as any
-        ).catch(() => (window as any).pdfjsLib);
-
-        // If dynamic import failed, try window global (loaded via script tag)
-        const pdfjs = pdfjsLib || (window as any).pdfjsLib;
-        if (!pdfjs) throw new Error('PDF.js not available');
-
-        pdfjs.GlobalWorkerOptions.workerSrc =
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-        const pdf = await pdfjs.getDocument({ data: typedArray }).promise;
-        const numPages = pdf.numPages;
-        const textParts: string[] = [];
-
-        for (let i = 1; i <= numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          const pageText = content.items
-            .map((item: any) => item.str)
-            .join(' ')
-            .replace(/\s{2,}/g, '\n');
-          textParts.push(pageText);
-        }
-
-        resolve(textParts.join('\n\n').trim());
-      } catch (err) {
-        reject(err);
-      }
-    };
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsArrayBuffer(file);
+    if (document.querySelector(`script[src="${src}"]`)) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = src;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error(`Failed to load ${src}`));
+    document.head.appendChild(script);
   });
 }
 
+async function extractPDFText(file: File): Promise<string> {
+  // Load PDF.js and wait for it to be ready
+  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+
+  const pdfjs = (window as any).pdfjsLib;
+  if (!pdfjs) throw new Error('PDF.js failed to load');
+
+  // Set worker AFTER the script is confirmed loaded
+  pdfjs.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const arrayBuffer = await file.arrayBuffer();
+  const typedArray = new Uint8Array(arrayBuffer);
+
+  const pdf = await pdfjs.getDocument({ data: typedArray }).promise;
+  const textParts: string[] = [];
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items
+      .map((item: any) => item.str)
+      .filter((s: string) => s.trim())
+      .join(' ')
+      .replace(/\s{3,}/g, '\n');
+    textParts.push(pageText);
+  }
+
+  return textParts.join('\n\n').trim();
+}
+
 async function extractDocxText(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        // Use mammoth.js from CDN for proper .docx extraction
-        const mammoth = (window as any).mammoth;
-        if (mammoth) {
-          const result = await mammoth.extractRawText({
-            arrayBuffer: e.target?.result as ArrayBuffer,
-          });
-          resolve(result.value.trim());
-        } else {
-          // Fallback: basic XML text extraction from docx (zip file)
-          const text = new TextDecoder().decode(e.target?.result as ArrayBuffer);
-          const cleaned = text
-            .replace(/<[^>]+>/g, ' ')
-            .replace(/[^\x20-\x7E\n]/g, ' ')
-            .replace(/\s{3,}/g, '\n')
-            .trim();
-          resolve(cleaned || `[Word document: ${file.name}]\nPlease paste your CV text below.`);
-        }
-      } catch {
-        reject(new Error('Failed to extract Word document text'));
-      }
-    };
-    reader.onerror = () => reject(new Error('Failed to read file'));
-    reader.readAsArrayBuffer(file);
-  });
+  await loadScript(
+    'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',
+  );
+
+  const mammoth = (window as any).mammoth;
+  if (!mammoth) throw new Error('Mammoth.js failed to load');
+
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.extractRawText({ arrayBuffer });
+  return result.value.trim();
 }
 
 export default function StageUpload() {
@@ -85,19 +67,6 @@ export default function StageUpload() {
   const [error, setError] = useState('');
   const [extracting, setExtracting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  // Load PDF.js + mammoth.js via script tags on mount
-  useEffect(() => {
-    const loadScript = (src: string) => {
-      if (document.querySelector(`script[src="${src}"]`)) return;
-      const script = document.createElement('script');
-      script.src = src;
-      script.async = true;
-      document.head.appendChild(script);
-    };
-    loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
-    loadScript('https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js');
-  }, []);
 
   const handleFile = async (file: File) => {
     setError('');
@@ -119,8 +88,10 @@ export default function StageUpload() {
       } else if (ext === 'pdf') {
         text = await extractPDFText(file);
         if (!text || text.length < 50) {
-          setError('Could not extract text from this PDF. It may be scanned or image-based. Please paste your CV text manually.');
-          setExtracting(false);
+          setError(
+            'This PDF appears to be scanned or image-based — text cannot be extracted automatically. Please paste your CV text in the box below.',
+          );
+          setActiveTab('paste');
           return;
         }
       } else if (ext === 'doc' || ext === 'docx') {
@@ -128,16 +99,18 @@ export default function StageUpload() {
       }
 
       if (!text || text.trim().length < 50) {
-        setError('Could not read this file. Please paste your CV text in the text box instead.');
+        setError('Could not read this file. Please paste your CV text in the box below.');
         setActiveTab('paste');
-        setExtracting(false);
         return;
       }
 
       setCvText(text.trim());
       setActiveTab('paste');
     } catch (err: any) {
-      setError(`Failed to read file: ${err.message}. Please paste your CV text manually.`);
+      console.error('[StageUpload] extraction error:', err);
+      setError(
+        `Could not read this file (${err.message}). Please paste your CV text in the box below.`,
+      );
       setActiveTab('paste');
     } finally {
       setExtracting(false);
@@ -150,7 +123,6 @@ export default function StageUpload() {
     const file = e.dataTransfer.files[0];
     if (file) handleFile(file);
   };
-
   const onDragOver = (e: DragEvent) => { e.preventDefault(); setDragging(true); };
   const onDragLeave = () => setDragging(false);
 
@@ -181,11 +153,8 @@ export default function StageUpload() {
           borderRadius: 'var(--radius)',
           padding: '14px 18px',
           marginBottom: 20,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: 12,
-          flexWrap: 'wrap',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 12, flexWrap: 'wrap',
         }}>
           <div>
             <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent)' }}>
@@ -202,14 +171,19 @@ export default function StageUpload() {
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 0, background: 'var(--bg3)', borderRadius: 'var(--radius-sm)', padding: 4, marginBottom: 20, border: '1px solid var(--border)' }}>
+      <div style={{
+        display: 'flex', gap: 0, background: 'var(--bg3)',
+        borderRadius: 'var(--radius-sm)', padding: 4, marginBottom: 20,
+        border: '1px solid var(--border)',
+      }}>
         {(['upload', 'paste'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             style={{
-              flex: 1, padding: '8px 16px', borderRadius: 6, border: 'none', cursor: 'pointer',
-              fontFamily: 'DM Sans, sans-serif', fontSize: 14, fontWeight: 500, transition: 'all 0.15s ease',
+              flex: 1, padding: '8px 16px', borderRadius: 6, border: 'none',
+              cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: 14,
+              fontWeight: 500, transition: 'all 0.15s ease',
               background: activeTab === tab ? 'var(--bg2)' : 'transparent',
               color: activeTab === tab ? 'var(--text)' : 'var(--text2)',
               boxShadow: activeTab === tab ? 'var(--shadow)' : 'none',
@@ -245,8 +219,12 @@ export default function StageUpload() {
                 animation: 'spin 0.9s linear infinite',
                 margin: '0 auto 16px',
               }} />
-              <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6 }}>Extracting text…</div>
-              <div style={{ color: 'var(--text3)', fontSize: 13 }}>Reading your CV file</div>
+              <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6 }}>
+                Extracting text…
+              </div>
+              <div style={{ color: 'var(--text3)', fontSize: 13 }}>
+                Reading your CV file
+              </div>
             </>
           ) : (
             <>
@@ -313,9 +291,9 @@ BSc Computer Science — University of London (2017)"
 
       {error && (
         <div style={{
-          marginTop: 12, padding: '10px 14px',
-          background: 'var(--red-dim)', border: '1px solid rgba(255,91,91,0.3)',
-          borderRadius: 8, fontSize: 13, color: 'var(--red)',
+          marginTop: 12, padding: '12px 16px',
+          background: 'var(--amber-dim)', border: '1px solid rgba(245,166,35,0.3)',
+          borderRadius: 8, fontSize: 13, color: 'var(--amber)', lineHeight: 1.5,
         }}>
           ⚠️ {error}
         </div>
