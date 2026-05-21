@@ -1,34 +1,26 @@
+import Cookies from 'js-cookie';
 import { ATSResult, JobMatchResult } from '@/store/career';
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL = 'llama-3.3-70b-versatile';
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.thoughtpilotai.com';
 
-function getKey(): string {
-  const key = process.env.NEXT_PUBLIC_GROQ_KEY;
-  if (!key) throw new Error('NEXT_PUBLIC_GROQ_KEY is not set');
-  return key;
-}
-
-async function groqChat(systemPrompt: string, userMessage: string): Promise<string> {
-  const res = await fetch(GROQ_API_URL, {
+async function groqChat(systemPrompt: string, userMessage: string, endpoint: string): Promise<string> {
+  const token = Cookies.get('tp_token') || '';
+  const res = await fetch(`${API}/api/career/${endpoint}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${getKey()}`,
+      'Authorization': `Bearer ${token}`,
     },
     body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 4096,
-      temperature: 0.3,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
+        { role: 'user',   content: userMessage  },
       ],
     }),
   });
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Groq API error: ${res.status} — ${err}`);
+    throw new Error(`API error: ${res.status} — ${err}`);
   }
   const data = await res.json();
   return data.choices[0]?.message?.content ?? '';
@@ -81,7 +73,7 @@ The JSON structure must be exactly:
 
 Include ALL 10 dimensions. Include 5-12 specific changes. Be brutally honest but constructive.`;
 
-  const raw = await groqChat(systemPrompt, `Here is the CV to analyze:\n\n${cvText}`);
+  const raw = await groqChat(systemPrompt, `Here is the CV to analyze:\n\n${cvText}`, 'analyze-cv');
   const json = extractJSON(raw);
   const result: ATSResult = JSON.parse(json);
 
@@ -110,10 +102,7 @@ Return ONLY valid JSON — no preamble, no markdown, no explanation.
 
 Provide 4-8 targeted suggestions. Be specific — reference exact phrases from the job description.`;
 
-  const raw = await groqChat(
-    systemPrompt,
-    `CV:\n${cvText}\n\n---\n\nJOB DESCRIPTION:\n${jobDescription}`,
-  );
+  const raw = await groqChat(systemPrompt, `CV:\n${cvText}\n\n---\n\nJOB DESCRIPTION:\n${jobDescription}`, 'analyze-job');
   const json = extractJSON(raw);
   return JSON.parse(json);
 }
@@ -130,14 +119,20 @@ Write a compelling, personalized cover letter. Be specific, confident, and conci
 Use a professional but human tone. 3 paragraphs max. Do NOT use generic phrases.
 Return ONLY the cover letter text — no subject line, no metadata, no preamble.`;
 
-  const context = approvedSuggestions.length > 0
-    ? `\n\nKey tailored points to include:\n${approvedSuggestions.join('\n')}`
-    : '';
-
-  const raw = await groqChat(
-    systemPrompt,
-    `Write a cover letter for ${userName} (${userRole}) applying to this role.\n\nCV:\n${cvText}${context}\n\nJOB DESCRIPTION:\n${jobDescription}`,
-  );
-
-  return raw.trim();
+  const token = Cookies.get('tp_token') || '';
+  const res = await fetch(`${API}/api/career/cover-letter`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      cv_text: cvText,
+      job_description: jobDescription,
+      user_name: userName,
+      user_role: userRole,
+    }),
+  });
+  const data = await res.json();
+  return data.cover_letter?.trim() || '';
 }
