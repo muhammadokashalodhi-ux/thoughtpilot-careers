@@ -6,7 +6,6 @@ import StageATSIntelligence from './StageATSIntelligence';
 import StageRecruiterIntelligence from './StageRecruiterIntelligence';
 import StageHumanAuthenticity from './StageHumanAuthenticity';
 import StageInterviewRisk from './StageInterviewRisk';
-import StageJobMatch from './StageJobMatch';
 import StageExport from './StageExport';
 
 const STAGES: { num: Stage; label: string; icon: string }[] = [
