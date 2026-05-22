@@ -1,9 +1,13 @@
 import { create } from 'zustand';
 
-export type Stage = 1 | 2 | 3 | 4 | 5;
+export type Stage = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 export type ChangeStatus = 'pending' | 'approved' | 'discarded';
-export type ChangeType = 'weak_verb' | 'ats' | 'quantification' | 'grammar' | 'improvement';
+export type ChangeType =
+  | 'weak_verb' | 'ats' | 'quantification' | 'grammar' | 'improvement'
+  | 'authenticity' | 'recruiter_trust' | 'interview_risk'
+  | 'leadership' | 'credibility' | 'narrative' | 'executive_presence' | 'humanization';
+
 export type SuggestionPriority = 'high' | 'medium' | 'low';
 
 export interface Dimension {
@@ -27,12 +31,157 @@ export interface CVChange {
   editedText?: string;
 }
 
-export interface ATSResult {
+export interface HiringConfidence {
+  score: number;
+  verdict: string;
+  recruiter_first_impression: string;
+  top_strengths: string[];
+  top_concerns: string[];
+}
+
+export interface RecruiterReaction {
+  first_impression: string;
+  trust_level: 'high' | 'medium' | 'low';
+  possible_concerns: string[];
+  why_it_matters: string;
+  recruiter_read_time_estimate: string;
+  executive_presence_score: number;
+}
+
+export interface CredibilityAnalysis {
+  score: number;
+  strong_signals: string[];
+  weak_signals: string[];
+  suspicious_claims: string[];
+  unsupported_skills: string[];
+  metric_quality: string;
+  overall_assessment: string;
+}
+
+export interface LeadershipSignals {
+  score: number;
+  signals_found: string[];
+  missing_signals: string[];
+  seniority_alignment: string;
+  people_management_strength: string;
+  strategic_ownership_strength: string;
+  improvement_suggestions: string[];
+}
+
+export interface CareerStory {
+  clarity_score: number;
+  career_direction: string;
+  positioning_strength: string;
+  brand_consistency: string;
+  narrative_gaps: string[];
+  career_arc_summary: string;
+}
+
+export interface PeerBenchmark {
+  market_position: string;
+  years_experience_detected: number;
+  competitive_strengths: string[];
+  missing_common_skills: string[];
+  uniqueness_score: number;
+  industry_comparison: string;
+}
+
+export interface SkillValidation {
+  verified_skills: string[];
+  weak_evidence_skills: string[];
+  hidden_skills_detected: string[];
+  unsupported_skills: string[];
+  skills_missing_evidence: string[];
+}
+
+export interface VocabWord {
+  word: string;
+  count: number;
+  alternatives: string[];
+}
+
+export interface VocabularyAnalysis {
+  repeated_words: VocabWord[];
+  weak_phrases: string[];
+  buzzwords: string[];
+  variety_score: number;
+}
+
+export interface BulletQuality {
+  too_short: string[];
+  too_long: string[];
+  passive_voice: string[];
+  weak_openings: string[];
+  generic_bullets: string[];
+  recommended_structure: string;
+}
+
+export interface ProfessionalismChecks {
+  file_name_score: number;
+  date_consistency: string;
+  link_quality: string;
+  email_professionalism: string;
+  formatting_consistency: string;
+  presentation_quality: string;
+}
+
+export interface HumanAuthenticity {
+  score: number;
+  risk_level: 'low' | 'medium' | 'high';
+  ai_like_patterns: string[];
+  recruiter_suspicion_triggers: string[];
+  humanization_suggestions: Array<{ replace: string; with: string; reason: string }>;
+  authenticity_summary: string;
+}
+
+export interface InterviewRisk {
+  risk_type: string;
+  severity: 'high' | 'medium' | 'low';
+  detected_issue: string;
+  why_recruiters_ask: string;
+  suggested_fix: string;
+  sample_interview_question: string;
+}
+
+export interface InterviewDefensibility {
+  high_risk_claims: Array<{
+    claim: string;
+    risk_reason: string;
+    prep_advice: string;
+    difficulty_level: 'low' | 'medium' | 'high';
+  }>;
+}
+
+export interface ATSParseAnalysis {
+  parse_rate: number;
+  readability_score: number;
+  issues: string[];
+  problematic_sections: string[];
+  format_risks: string[];
+  recommendations: string[];
+}
+
+export interface IntelligenceResult {
   overall_score: number;
   grade: string;
   summary: string;
+  hiring_confidence: HiringConfidence;
   dimensions: Dimension[];
   changes: CVChange[];
+  ats_parse_analysis: ATSParseAnalysis;
+  recruiter_reaction: RecruiterReaction;
+  credibility_analysis: CredibilityAnalysis;
+  leadership_signals: LeadershipSignals;
+  career_story: CareerStory;
+  peer_benchmark: PeerBenchmark;
+  skill_validation: SkillValidation;
+  vocabulary_analysis: VocabularyAnalysis;
+  bullet_quality: BulletQuality;
+  professionalism_checks: ProfessionalismChecks;
+  human_authenticity: HumanAuthenticity;
+  interview_risks: InterviewRisk[];
+  interview_defensibility: InterviewDefensibility;
+  hidden_recruiter_concerns: string[];
   missing_keywords: string[];
   strengths: string[];
 }
@@ -79,31 +228,26 @@ export interface HandoffData {
 export type ExportTemplate = 'classic' | 'modern' | 'minimal' | 'executive' | 'compact';
 
 interface CareerStore {
-  // Auth
   handoff: HandoffData | null;
   authLoading: boolean;
   setHandoff: (h: HandoffData | null) => void;
   setAuthLoading: (v: boolean) => void;
 
-  // Stage
   stage: Stage;
   setStage: (s: Stage) => void;
 
-  // CV Input
   cvText: string;
   setCvText: (t: string) => void;
   cvFileName: string;
   setCvFileName: (n: string) => void;
 
-  // ATS Analysis
-  atsResult: ATSResult | null;
-  setAtsResult: (r: ATSResult | null) => void;
+  intelligenceResult: IntelligenceResult | null;
+  setIntelligenceResult: (r: IntelligenceResult | null) => void;
   analysisLoading: boolean;
   setAnalysisLoading: (v: boolean) => void;
   analysisError: string;
   setAnalysisError: (e: string) => void;
 
-  // Changes
   changes: CVChange[];
   setChanges: (c: CVChange[]) => void;
   approveChange: (id: string) => void;
@@ -111,7 +255,6 @@ interface CareerStore {
   editChange: (id: string, text: string) => void;
   approveAll: () => void;
 
-  // Job Match
   jobDescription: string;
   setJobDescription: (jd: string) => void;
   jobMatchResult: JobMatchResult | null;
@@ -119,7 +262,6 @@ interface CareerStore {
   jobMatchLoading: boolean;
   setJobMatchLoading: (v: boolean) => void;
   jobSuggestions: JobSuggestion[];
-  setJobSuggestions: (s: JobSuggestion[]) => void;
   approveJobSuggestion: (id: string) => void;
   discardJobSuggestion: (id: string) => void;
   coverLetter: string;
@@ -127,13 +269,9 @@ interface CareerStore {
   coverLetterLoading: boolean;
   setCoverLetterLoading: (v: boolean) => void;
 
-  // Export
   selectedTemplate: ExportTemplate;
   setSelectedTemplate: (t: ExportTemplate) => void;
-  exportLoading: boolean;
-  setExportLoading: (v: boolean) => void;
 
-  // Computed helpers
   getApprovedChanges: () => CVChange[];
   getFinalCvText: () => string;
 }
@@ -152,8 +290,8 @@ export const useCareerStore = create<CareerStore>((set, get) => ({
   cvFileName: '',
   setCvFileName: (n) => set({ cvFileName: n }),
 
-  atsResult: null,
-  setAtsResult: (r) => set({ atsResult: r }),
+  intelligenceResult: null,
+  setIntelligenceResult: (r) => set({ intelligenceResult: r }),
   analysisLoading: false,
   setAnalysisLoading: (v) => set({ analysisLoading: v }),
   analysisError: '',
@@ -162,32 +300,30 @@ export const useCareerStore = create<CareerStore>((set, get) => ({
   changes: [],
   setChanges: (c) => set({ changes: c }),
   approveChange: (id) =>
-    set((s) => ({ changes: s.changes.map((c) => (c.id === id ? { ...c, status: 'approved' } : c)) })),
+    set((s) => ({ changes: s.changes.map((c) => c.id === id ? { ...c, status: 'approved' } : c) })),
   discardChange: (id) =>
-    set((s) => ({ changes: s.changes.map((c) => (c.id === id ? { ...c, status: 'discarded' } : c)) })),
+    set((s) => ({ changes: s.changes.map((c) => c.id === id ? { ...c, status: 'discarded' } : c) })),
   editChange: (id, text) =>
-    set((s) => ({
-      changes: s.changes.map((c) =>
-        c.id === id ? { ...c, editedText: text, status: 'approved' } : c,
-      ),
-    })),
+    set((s) => ({ changes: s.changes.map((c) => c.id === id ? { ...c, editedText: text, status: 'approved' } : c) })),
   approveAll: () =>
-    set((s) => ({ changes: s.changes.map((c) => (c.status === 'pending' ? { ...c, status: 'approved' } : c)) })),
+    set((s) => ({ changes: s.changes.map((c) => c.status === 'pending' ? { ...c, status: 'approved' } : c) })),
 
   jobDescription: '',
   setJobDescription: (jd) => set({ jobDescription: jd }),
   jobMatchResult: null,
   setJobMatchResult: (r) => {
-    set({ jobMatchResult: r, jobSuggestions: r ? r.suggestions.map((s) => ({ ...s, status: 'pending' as ChangeStatus })) : [] });
+    set({
+      jobMatchResult: r,
+      jobSuggestions: r ? r.suggestions.map((s) => ({ ...s, status: 'pending' as ChangeStatus })) : [],
+    });
   },
   jobMatchLoading: false,
   setJobMatchLoading: (v) => set({ jobMatchLoading: v }),
   jobSuggestions: [],
-  setJobSuggestions: (s) => set({ jobSuggestions: s }),
   approveJobSuggestion: (id) =>
-    set((s) => ({ jobSuggestions: s.jobSuggestions.map((j) => (j.id === id ? { ...j, status: 'approved' } : j)) })),
+    set((s) => ({ jobSuggestions: s.jobSuggestions.map((j) => j.id === id ? { ...j, status: 'approved' } : j) })),
   discardJobSuggestion: (id) =>
-    set((s) => ({ jobSuggestions: s.jobSuggestions.map((j) => (j.id === id ? { ...j, status: 'discarded' } : j)) })),
+    set((s) => ({ jobSuggestions: s.jobSuggestions.map((j) => j.id === id ? { ...j, status: 'discarded' } : j) })),
   coverLetter: '',
   setCoverLetter: (cl) => set({ coverLetter: cl }),
   coverLetterLoading: false,
@@ -195,19 +331,14 @@ export const useCareerStore = create<CareerStore>((set, get) => ({
 
   selectedTemplate: 'classic',
   setSelectedTemplate: (t) => set({ selectedTemplate: t }),
-  exportLoading: false,
-  setExportLoading: (v) => set({ exportLoading: v }),
 
   getApprovedChanges: () => get().changes.filter((c) => c.status === 'approved'),
   getFinalCvText: () => {
     const { cvText, changes } = get();
     let final = cvText;
-    changes
-      .filter((c) => c.status === 'approved')
-      .forEach((c) => {
-        const replacement = c.editedText || c.suggested;
-        final = final.replace(c.original, replacement);
-      });
+    changes.filter((c) => c.status === 'approved').forEach((c) => {
+      final = final.replace(c.original, c.editedText || c.suggested);
+    });
     return final;
   },
 }));

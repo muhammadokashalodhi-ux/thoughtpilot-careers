@@ -6,35 +6,25 @@ import { useCareerStore } from '@/store/career';
 import CareerSuiteApp from '@/components/CareerSuiteApp';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'https://thoughtpilot-ai-backend-production.up.railway.app';
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://careers.thoughtpilotai.com';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.thoughtpilotai.com';
 
 export default function Page() {
   const { handoff, setHandoff, authLoading, setAuthLoading } = useCareerStore();
 
   useEffect(() => {
     const init = async () => {
-      const params = new URLSearchParams(window.location.search);
-      const urlToken = params.get('token');
-
-      if (urlToken) {
-        Cookies.set('tp_token', urlToken, { expires: 7 });
-        // Clean token from URL without reload
-        window.history.replaceState({}, '', window.location.pathname);
-      }
-
-      const token = urlToken || Cookies.get('tp_token');
+      const token = Cookies.get('tp_token');
       if (!token) {
         setAuthLoading(false);
         return;
       }
-
       try {
         const { data } = await axios.get(`${API}/api/career/handoff`, {
-          headers: { Authorization: `Bearer ${token}` },
           withCredentials: true,
         });
         setHandoff(data);
       } catch {
+        // Token invalid / expired — treat as logged out
         Cookies.remove('tp_token');
       } finally {
         setAuthLoading(false);
@@ -91,7 +81,7 @@ export default function Page() {
           </p>
 
           <a
-            href={`https://app.thoughtpilotai.com/login?redirect=${encodeURIComponent('https://careers.thoughtpilotai.com')}`}
+            href={`${APP_URL}/login?redirect=${encodeURIComponent('https://app.thoughtpilotai.com')}`}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 10,
               background: 'var(--accent)', color: '#fff',

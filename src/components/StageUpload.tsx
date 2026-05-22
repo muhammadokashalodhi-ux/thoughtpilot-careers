@@ -2,118 +2,46 @@
 import { useRef, useState, DragEvent } from 'react';
 import { useCareerStore } from '@/store/career';
 
-function loadScript(src: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) {
-      resolve();
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = src;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error(`Failed to load ${src}`));
-    document.head.appendChild(script);
-  });
-}
-
-async function extractPDFText(file: File): Promise<string> {
-  // Load PDF.js and wait for it to be ready
-  await loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
-
-  const pdfjs = (window as any).pdfjsLib;
-  if (!pdfjs) throw new Error('PDF.js failed to load');
-
-  // Set worker AFTER the script is confirmed loaded
-  pdfjs.GlobalWorkerOptions.workerSrc =
-    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-  const arrayBuffer = await file.arrayBuffer();
-  const typedArray = new Uint8Array(arrayBuffer);
-
-  const pdf = await pdfjs.getDocument({ data: typedArray }).promise;
-  const textParts: string[] = [];
-
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    const pageText = content.items
-      .map((item: any) => item.str)
-      .filter((s: string) => s.trim())
-      .join(' ')
-      .replace(/\s{3,}/g, '\n');
-    textParts.push(pageText);
-  }
-
-  return textParts.join('\n\n').trim();
-}
-
-async function extractDocxText(file: File): Promise<string> {
-  await loadScript(
-    'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js',
-  );
-
-  const mammoth = (window as any).mammoth;
-  if (!mammoth) throw new Error('Mammoth.js failed to load');
-
-  const arrayBuffer = await file.arrayBuffer();
-  const result = await mammoth.extractRawText({ arrayBuffer });
-  return result.value.trim();
-}
-
 export default function StageUpload() {
   const { cvText, setCvText, setCvFileName, setStage, handoff } = useCareerStore();
   const [dragging, setDragging] = useState(false);
   const [activeTab, setActiveTab] = useState<'upload' | 'paste'>('upload');
   const [error, setError] = useState('');
-  const [extracting, setExtracting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = async (file: File) => {
     setError('');
     setCvFileName(file.name);
     const ext = file.name.split('.').pop()?.toLowerCase();
-
     if (!ext || !['pdf', 'txt', 'doc', 'docx'].includes(ext)) {
       setError('Please upload a PDF, Word (.docx), or .txt file.');
       return;
     }
-
-    setExtracting(true);
-
-    try {
-      let text = '';
-
-      if (ext === 'txt') {
-        text = await file.text();
-      } else if (ext === 'pdf') {
-        text = await extractPDFText(file);
-        if (!text || text.length < 50) {
-          setError(
-            'This PDF appears to be scanned or image-based — text cannot be extracted automatically. Please paste your CV text in the box below.',
-          );
-          setActiveTab('paste');
-          return;
-        }
-      } else if (ext === 'doc' || ext === 'docx') {
-        text = await extractDocxText(file);
-      }
-
-      if (!text || text.trim().length < 50) {
-        setError('Could not read this file. Please paste your CV text in the box below.');
+    if (ext === 'txt') {
+      const text = await file.text();
+      setCvText(text);
+      setActiveTab('paste');
+    } else if (ext === 'pdf') {
+      // PDF: read as text via FileReader (basic extraction)
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        // Basic text extraction from PDF — for a real app use pdf.js
+        const textContent = result.replace(/[^\x20-\x7E\n]/g, ' ').replace(/\s{3,}/g, '\n');
+        setCvText(textContent.trim() || `[PDF: ${file.name}]\nPlease paste your CV text below for best results.`);
         setActiveTab('paste');
-        return;
-      }
-
-      setCvText(text.trim());
-      setActiveTab('paste');
-    } catch (err: any) {
-      console.error('[StageUpload] extraction error:', err);
-      setError(
-        `Could not read this file (${err.message}). Please paste your CV text in the box below.`,
-      );
-      setActiveTab('paste');
-    } finally {
-      setExtracting(false);
+      };
+      reader.readAsText(file);
+    } else {
+      // Word: basic text extraction
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        const cleaned = result.replace(/[^\x20-\x7E\n]/g, ' ').replace(/\s{3,}/g, '\n');
+        setCvText(cleaned.trim() || `[Word document: ${file.name}]\nPlease paste your CV text below.`);
+        setActiveTab('paste');
+      };
+      reader.readAsText(file);
     }
   };
 
@@ -123,6 +51,7 @@ export default function StageUpload() {
     const file = e.dataTransfer.files[0];
     if (file) handleFile(file);
   };
+
   const onDragOver = (e: DragEvent) => { e.preventDefault(); setDragging(true); };
   const onDragLeave = () => setDragging(false);
 
@@ -153,8 +82,11 @@ export default function StageUpload() {
           borderRadius: 'var(--radius)',
           padding: '14px 18px',
           marginBottom: 20,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: 12, flexWrap: 'wrap',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
         }}>
           <div>
             <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--accent)' }}>
@@ -171,19 +103,14 @@ export default function StageUpload() {
       )}
 
       {/* Tabs */}
-      <div style={{
-        display: 'flex', gap: 0, background: 'var(--bg3)',
-        borderRadius: 'var(--radius-sm)', padding: 4, marginBottom: 20,
-        border: '1px solid var(--border)',
-      }}>
+      <div style={{ display: 'flex', gap: 0, background: 'var(--bg3)', borderRadius: 'var(--radius-sm)', padding: 4, marginBottom: 20, border: '1px solid var(--border)' }}>
         {(['upload', 'paste'] as const).map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             style={{
-              flex: 1, padding: '8px 16px', borderRadius: 6, border: 'none',
-              cursor: 'pointer', fontFamily: 'DM Sans, sans-serif', fontSize: 14,
-              fontWeight: 500, transition: 'all 0.15s ease',
+              flex: 1, padding: '8px 16px', borderRadius: 6, border: 'none', cursor: 'pointer',
+              fontFamily: 'DM Sans, sans-serif', fontSize: 14, fontWeight: 500, transition: 'all 0.15s ease',
               background: activeTab === tab ? 'var(--bg2)' : 'transparent',
               color: activeTab === tab ? 'var(--text)' : 'var(--text2)',
               boxShadow: activeTab === tab ? 'var(--shadow)' : 'none',
@@ -200,49 +127,27 @@ export default function StageUpload() {
           onDrop={onDrop}
           onDragOver={onDragOver}
           onDragLeave={onDragLeave}
-          onClick={() => !extracting && fileRef.current?.click()}
+          onClick={() => fileRef.current?.click()}
           style={{
             border: `2px dashed ${dragging ? 'var(--accent)' : 'var(--border)'}`,
             borderRadius: 'var(--radius-lg)',
             padding: '48px 24px',
             textAlign: 'center',
-            cursor: extracting ? 'wait' : 'pointer',
+            cursor: 'pointer',
             background: dragging ? 'var(--accent-dim)' : 'var(--bg2)',
             transition: 'all 0.2s ease',
           }}
         >
-          {extracting ? (
-            <>
-              <div style={{
-                width: 40, height: 40, borderRadius: '50%',
-                border: '3px solid var(--bg3)', borderTopColor: 'var(--accent)',
-                animation: 'spin 0.9s linear infinite',
-                margin: '0 auto 16px',
-              }} />
-              <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6 }}>
-                Extracting text…
-              </div>
-              <div style={{ color: 'var(--text3)', fontSize: 13 }}>
-                Reading your CV file
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
-              <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6 }}>
-                {dragging ? 'Drop it here!' : 'Drag & drop your CV'}
-              </div>
-              <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
-                Supports PDF, Word (.docx), and plain text (.txt)
-              </div>
-              <button
-                className="btn btn-secondary"
-                onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}
-              >
-                Browse Files
-              </button>
-            </>
-          )}
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📋</div>
+          <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 6 }}>
+            {dragging ? 'Drop it here!' : 'Drag & drop your CV'}
+          </div>
+          <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
+            Supports PDF, Word (.docx), and plain text (.txt)
+          </div>
+          <button className="btn btn-secondary" onClick={(e) => { e.stopPropagation(); fileRef.current?.click(); }}>
+            Browse Files
+          </button>
           <input
             ref={fileRef}
             type="file"
@@ -290,12 +195,8 @@ BSc Computer Science — University of London (2017)"
       )}
 
       {error && (
-        <div style={{
-          marginTop: 12, padding: '12px 16px',
-          background: 'var(--amber-dim)', border: '1px solid rgba(245,166,35,0.3)',
-          borderRadius: 8, fontSize: 13, color: 'var(--amber)', lineHeight: 1.5,
-        }}>
-          ⚠️ {error}
+        <div style={{ marginTop: 12, padding: '10px 14px', background: 'var(--red-dim)', border: '1px solid rgba(255,91,91,0.3)', borderRadius: 8, fontSize: 13, color: 'var(--red)' }}>
+          {error}
         </div>
       )}
 
@@ -304,13 +205,13 @@ BSc Computer Science — University of London (2017)"
         <button
           className="btn btn-primary btn-lg"
           onClick={() => setStage(2)}
-          disabled={!canProceed || extracting}
+          disabled={!canProceed}
         >
           Analyze My CV →
         </button>
       </div>
 
-      {!canProceed && cvText.length > 0 && !extracting && (
+      {!canProceed && cvText.length > 0 && (
         <p style={{ textAlign: 'right', fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>
           Need at least 100 characters to analyze
         </p>
