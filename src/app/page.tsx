@@ -5,7 +5,7 @@ import Cookies from 'js-cookie';
 import { useCareerStore } from '@/store/career';
 import CareerSuiteApp from '@/components/CareerSuiteApp';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'https://thoughtpilot-ai-backend-production.up.railway.app';
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.thoughtpilotai.com';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.thoughtpilotai.com';
 
 export default function Page() {
@@ -13,23 +13,46 @@ export default function Page() {
 
   useEffect(() => {
     const init = async () => {
-      const token = Cookies.get('tp_token');
+      // ── Step 1: Check URL for token passed from main app ──
+      const params = new URLSearchParams(window.location.search);
+      const urlToken = params.get('token');
+
+      if (urlToken) {
+        // Store it in cookie so future requests use it
+        Cookies.set('tp_token', urlToken, {
+          expires: 7,
+          sameSite: 'lax',
+          secure: true,
+        });
+        // Clean the token out of the URL without triggering a reload
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, '', cleanUrl);
+      }
+
+      // ── Step 2: Get token from cookie (either just set or pre-existing) ──
+      const token = urlToken || Cookies.get('tp_token');
+
       if (!token) {
         setAuthLoading(false);
         return;
       }
+
+      // ── Step 3: Call handoff with token as Authorization header ──
       try {
         const { data } = await axios.get(`${API}/api/career/handoff`, {
+          headers: { Authorization: `Bearer ${token}` },
           withCredentials: true,
         });
         setHandoff(data);
-      } catch {
-        // Token invalid / expired — treat as logged out
+      } catch (err) {
+        // Token invalid or expired — clear and show login
         Cookies.remove('tp_token');
+        console.error('[handoff] failed:', err);
       } finally {
         setAuthLoading(false);
       }
     };
+
     init();
   }, []);
 
@@ -45,7 +68,9 @@ export default function Page() {
           border: '3px solid var(--bg3)', borderTopColor: 'var(--accent)',
           animation: 'spin 0.9s linear infinite',
         }} />
-        <span style={{ color: 'var(--text3)', fontSize: 14 }}>Loading ThoughtPilot Career Suite…</span>
+        <span style={{ color: 'var(--text3)', fontSize: 14 }}>
+          Loading ThoughtPilot Career Suite…
+        </span>
       </div>
     );
   }
@@ -60,12 +85,12 @@ export default function Page() {
           textAlign: 'center', maxWidth: 480, padding: '0 24px',
           animation: 'fadeIn 0.4s ease',
         }}>
-          {/* Logo */}
           <div style={{
             width: 72, height: 72, borderRadius: 20,
             background: 'linear-gradient(135deg, var(--accent), #9b6ff5)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 24px', fontSize: 32, boxShadow: '0 8px 32px rgba(124,111,247,0.4)',
+            margin: '0 auto 24px', fontSize: 32,
+            boxShadow: '0 8px 32px rgba(124,111,247,0.4)',
           }}>
             ✈️
           </div>
@@ -74,38 +99,34 @@ export default function Page() {
             ThoughtPilot Career Suite
           </h1>
           <p style={{ color: 'var(--text2)', marginBottom: 8, lineHeight: 1.6 }}>
-            AI-powered CV analysis, ATS optimisation, job matching, and professional exports.
+            AI-powered recruiter intelligence, ATS optimisation, and professional exports.
           </p>
           <p style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 32 }}>
             Sign in with your ThoughtPilot account to get started.
           </p>
 
           <a
-            href={`${APP_URL}/login?redirect=${encodeURIComponent('https://app.thoughtpilotai.com')}`}
+            href={`${APP_URL}/login?redirect=${encodeURIComponent('https://careers.thoughtpilotai.com')}`}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 10,
               background: 'var(--accent)', color: '#fff',
               padding: '14px 32px', borderRadius: 'var(--radius)',
               textDecoration: 'none', fontWeight: 600, fontSize: 16,
-              fontFamily: 'DM Sans, sans-serif',
-              transition: 'all 0.2s ease',
+              fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s ease',
               boxShadow: '0 4px 20px rgba(124,111,247,0.4)',
             }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = 'var(--accent-hover)'; (e.currentTarget as HTMLAnchorElement).style.transform = 'translateY(-2px)'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.background = 'var(--accent)'; (e.currentTarget as HTMLAnchorElement).style.transform = 'none'; }}
           >
             ✈️ Sign in with ThoughtPilot
           </a>
 
-          {/* Feature previews */}
           <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 40,
-            textAlign: 'left',
+            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12,
+            marginTop: 40, textAlign: 'left',
           }}>
             {[
-              { icon: '🔍', title: 'ATS Analysis', desc: '10-dimension CV scoring' },
-              { icon: '✏️', title: 'Smart Edits', desc: 'Approve or tweak each change' },
-              { icon: '🎯', title: 'Job Matching', desc: 'Tailor your CV per role' },
+              { icon: '🧠', title: 'Recruiter Intelligence', desc: '18-dimension analysis' },
+              { icon: '🔍', title: 'Authenticity Check', desc: 'AI-pattern detection' },
+              { icon: '🎯', title: 'Interview Risks', desc: 'Prep for hard questions' },
               { icon: '📄', title: '5 Templates', desc: 'Export as PDF or Word' },
             ].map((f) => (
               <div key={f.title} style={{
