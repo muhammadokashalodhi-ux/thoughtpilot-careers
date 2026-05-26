@@ -30,21 +30,36 @@ async function backendCall(endpoint: string, messages: object[]): Promise<string
 }
 
 function extractJSON(raw: string): string {
+  if (!raw || !raw.trim()) throw new Error('Empty response from AI — Groq returned no content');
+
   let json = raw;
   const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fence) json = fence[1].trim();
   else {
     const start = raw.indexOf('{');
     const end = raw.lastIndexOf('}');
-    if (start !== -1 && end !== -1) json = raw.slice(start, end + 1);
-    else json = raw.trim();
+    if (start === -1) throw new Error('No JSON object found in AI response');
+    // If end <= start the JSON was truncated — try to recover
+    if (end <= start) {
+      throw new Error('AI response was truncated — JSON incomplete. Try a shorter CV or retry.');
+    }
+    json = raw.slice(start, end + 1);
   }
-  // Strip control characters that break JSON.parse (tabs/newlines inside strings)
-  // Replace literal \n and \t inside JSON string values with escaped versions
+
+  // Strip control characters that break JSON.parse
   json = json
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '') // strip non-printable control chars
-    .replace(/\r\n/g, '\\n')  // normalize CRLF inside strings
-    .replace(/\r/g, '\\n');   // normalize CR inside strings
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
+    .replace(/\r\n/g, '\\n')
+    .replace(/\r/g, '\\n');
+
+  // Validate it parses before returning
+  try {
+    JSON.parse(json);
+  } catch (e) {
+    // Response was likely truncated — give a clear error
+    throw new Error('AI response was cut off mid-JSON (response too long). Try a shorter CV or retry.');
+  }
+
   return json;
 }
 
@@ -241,16 +256,47 @@ Return ONLY valid JSON matching this exact structure — no preamble, no markdow
   "strengths": ["<strength — must reference specific CV evidence, not generic praise>"]
 }`;
 
+// Max CV length to prevent token overflow (Groq limit ~8000 tokens for CV)
+const MAX_CV_CHARS = 12000;
+
 export async function analyzeResume(cvText: string): Promise<IntelligenceResult> {
+  // Trim CV if too long to prevent truncated responses
+  const trimmedCV = cvText.length > MAX_CV_CHARS
+    ? cvText.slice(0, MAX_CV_CHARS) + '\n\n[CV truncated for analysis — first 12,000 characters used]'
+    : cvText;
+
   const messages = [
     { role: 'system', content: MASTER_SYSTEM_PROMPT },
-    { role: 'user', content: `Analyze this resume with full recruiter intelligence. Be strict and honest — do not inflate scores:\n\n${cvText}` },
+    {
+      role: 'user',
+      content: `Analyze this resume with full recruiter intelligence. Be strict and honest — do not inflate scores:\n\n${trimmedCV}`
+    },
   ];
 
-  const raw = await backendCall('/api/career/analyze-cv', messages);
-  const json = extractJSON(raw);
-  const result: IntelligenceResult = JSON.parse(json);
-  return result;
+  let lastError: Error | null = null;
+
+  // Retry up to 2 times on truncation errors
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const raw = await backendCall('/api/career/analyze-cv', messages);
+      const json = extractJSON(raw);
+      const result: IntelligenceResult = JSON.parse(json);
+      return result;
+    } catch (err: any) {
+      lastError = err;
+      const msg = err?.message || '';
+      // Only retry on truncation/parse errors, not auth errors
+      if (msg.includes('truncated') || msg.includes('cut off') || msg.includes('JSON')) {
+        console.warn(`[analyzeResume] Attempt ${attempt} failed: ${msg} — retrying...`);
+        // Wait 1s before retry
+        await new Promise(r => setTimeout(r, 1000));
+        continue;
+      }
+      throw err;
+    }
+  }
+
+  throw lastError || new Error('Analysis failed after retries');
 }
 
 export async function analyzeJobMatch(cvText: string, jobDescription: string): Promise<JobMatchResult> {
