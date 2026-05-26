@@ -252,8 +252,8 @@ function RepeatRow({ word, count, alternatives }: { word: string; count: number;
       </div>
       <div style={{ fontSize: 12, color: 'var(--text3)' }}>
         Try:{' '}
-        {alternatives.slice(0, 3).map((a, i) => (
-          <span key={i} style={{ display: 'inline-block', marginRight: 6, padding: '1px 8px', background: 'var(--bg4)', borderRadius: 4, color: 'var(--text2)', fontWeight: 500 }}>{a}</span>
+        {(alternatives || []).slice(0, 3).map((a: any, i: number) => (
+          <span key={i} style={{ display: 'inline-block', marginRight: 6, padding: '1px 8px', background: 'var(--bg4)', borderRadius: 4, color: 'var(--text2)', fontWeight: 500 }}>{typeof a === 'string' ? a : String(a)}</span>
         ))}
       </div>
     </div>
@@ -261,11 +261,14 @@ function RepeatRow({ word, count, alternatives }: { word: string; count: number;
 }
 
 // ─── Bullet row ─────────────────────────────────────────────────────────────
-function BulletRow({ text, tag }: { text: string; tag: string }) {
+function BulletRow({ text, tag }: { text: any; tag: string }) {
+  const display = typeof text === 'object' && text !== null
+    ? (text.text || text.original || JSON.stringify(text))
+    : String(text ?? '');
   return (
     <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 6, background: 'var(--red-dim)', border: '1px solid rgba(255,91,91,0.15)' }}>
       <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--red)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>{tag}</div>
-      <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5, fontStyle: 'italic' }}>"{text}"</div>
+      <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5, fontStyle: 'italic' }}>"{display}"</div>
     </div>
   );
 }
@@ -448,7 +451,7 @@ export default function StageReport() {
           <h2 style={{ fontSize: 22, marginBottom: 6 }}>Recruiter Intelligence Report</h2>
           <p style={{ color: 'var(--text2)', fontSize: 14, lineHeight: 1.7, marginBottom: 12 }}>{r.summary}</p>
           <div className="flex" style={{ gap: 8, flexWrap: 'wrap' }}>
-            {r.strengths?.slice(0, 3).map((s: string, i: number) => <span key={i} className="badge badge-green">{s}</span>)}
+            {r.strengths?.slice(0, 3).map((s: any, i: number) => <span key={i} className="badge badge-green">{safeStr(s)}</span>)}
           </div>
         </div>
         <div style={{ background: 'var(--accent-dim)', border: '1px solid rgba(124,111,247,0.3)', borderRadius: 12, padding: '16px 20px', minWidth: 180, textAlign: 'center' }}>
@@ -583,11 +586,11 @@ export default function StageReport() {
             {va?.repeated_words?.filter((w: any) => w.count >= 3).map((w: any, i: number) => (
               <RepeatRow key={i} word={w.word} count={w.count} alternatives={w.alternatives || []} />
             ))}
-            {va?.weak_phrases?.slice(0, 4).map((p: string, i: number) => (
-              <IssueItem key={i} text={`Weak phrase: "${p}"`} type="warn" />
+            {va?.weak_phrases?.slice(0, 4).map((p: any, i: number) => (
+              <IssueItem key={i} text={`Weak phrase: "${safeStr(p)}"`} type="warn" />
             ))}
-            {va?.buzzwords?.slice(0, 3).map((b: string, i: number) => (
-              <IssueItem key={i} text={`Overused buzzword: "${b}" — replace with specific evidence`} type="warn" />
+            {va?.buzzwords?.slice(0, 3).map((b: any, i: number) => (
+              <IssueItem key={i} text={`Overused buzzword: "${safeStr(b)}" — replace with specific evidence`} type="warn" />
             ))}
             <div style={{ marginTop: 18, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>FAQs</div>
@@ -769,7 +772,7 @@ export default function StageReport() {
                   {r.missing_keywords.length} keywords commonly expected for this profile are absent:
                 </div>
                 <div className="flex" style={{ gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-                  {r.missing_keywords.map((kw: string, i: number) => <span key={i} className="badge badge-amber">{kw}</span>)}
+                  {r.missing_keywords.map((kw: any, i: number) => <span key={i} className="badge badge-amber">{safeStr(kw)}</span>)}
                 </div>
               </>
             )}
@@ -813,8 +816,8 @@ export default function StageReport() {
             {(ca?.strong_signals?.length || 0) > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Strong Trust Signals</div>
-                {ca.strong_signals.map((s: string, i: number) => (
-                  <div key={i} style={{ fontSize: 13, color: 'var(--green)', marginBottom: 6, display: 'flex', gap: 8 }}><span>✓</span><span>{s}</span></div>
+                {ca.strong_signals.map((s: any, i: number) => (
+                  <div key={i} style={{ fontSize: 13, color: 'var(--green)', marginBottom: 6, display: 'flex', gap: 8 }}><span>✓</span><span>{safeStr(s)}</span></div>
                 ))}
               </div>
             )}
@@ -827,7 +830,7 @@ export default function StageReport() {
             {(ca?.unsupported_skills?.length || 0) > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--red)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Unsupported Skills</div>
-                {ca.unsupported_skills.map((s: string, i: number) => (
+                {ca.unsupported_skills.map((s: any, i: number) => (
                   <IssueItem key={i} text={`"${s}" is listed but not demonstrated in experience`} type="error" />
                 ))}
               </div>
@@ -912,8 +915,8 @@ export default function StageReport() {
             {(pb?.competitive_strengths?.length || 0) > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Where You Beat Peers</div>
-                {pb.competitive_strengths.map((s: string, i: number) => (
-                  <div key={i} style={{ fontSize: 13, color: 'var(--green)', marginBottom: 6, display: 'flex', gap: 8 }}><span>✓</span><span>{s}</span></div>
+                {pb.competitive_strengths.map((s: any, i: number) => (
+                  <div key={i} style={{ fontSize: 13, color: 'var(--green)', marginBottom: 6, display: 'flex', gap: 8 }}><span>✓</span><span>{safeStr(s)}</span></div>
                 ))}
               </div>
             )}
@@ -936,10 +939,10 @@ export default function StageReport() {
               proactively address them before they cost you the interview.
             </p>
             {(r.hidden_recruiter_concerns?.length || 0) > 0
-              ? r.hidden_recruiter_concerns.map((c: string, i: number) => (
+              ? r.hidden_recruiter_concerns.map((c: any, i: number) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 14px', background: 'var(--red-dim)', border: '1px solid rgba(255,91,91,0.2)', borderRadius: 8, marginBottom: 8 }}>
                     <span style={{ fontSize: 16, flexShrink: 0 }}>👁</span>
-                    <span style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.55 }}>{c}</span>
+                    <span style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.55 }}>{safeStr(c)}</span>
                   </div>
                 ))
               : <Verdict pass={true} passText="No significant hidden concerns detected for this profile." failText="" />
@@ -982,7 +985,7 @@ export default function StageReport() {
               <div style={{ marginTop: 12, marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Recruiter Suspicion Triggers</div>
                 <div className="flex" style={{ gap: 6, flexWrap: 'wrap' }}>
-                  {ha.recruiter_suspicion_triggers.map((t: string, i: number) => <span key={i} className="badge badge-amber">{t}</span>)}
+                  {ha.recruiter_suspicion_triggers.map((t: any, i: number) => <span key={i} className="badge badge-amber">{safeStr(t)}</span>)}
                 </div>
               </div>
             )}
@@ -1049,14 +1052,14 @@ export default function StageReport() {
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Verified — Evidence Found</div>
                 <div className="flex" style={{ gap: 6, flexWrap: 'wrap' }}>
-                  {sv.verified_skills.slice(0, 10).map((s: string, i: number) => <span key={i} className="badge badge-green">✓ {s}</span>)}
+                  {sv.verified_skills.slice(0, 10).map((s: any, i: number) => <span key={i} className="badge badge-green">✓ {safeStr(s)}</span>)}
                 </div>
               </div>
             )}
             {(sv?.unsupported_skills?.length || 0) > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--red)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>No Supporting Evidence Found</div>
-                {sv.unsupported_skills.map((s: string, i: number) => (
+                {sv.unsupported_skills.map((s: any, i: number) => (
                   <IssueItem key={i} text={`"${s}" listed in skills but never demonstrated in experience`} type="error" />
                 ))}
               </div>
@@ -1064,7 +1067,7 @@ export default function StageReport() {
             {(sv?.weak_evidence_skills?.length || 0) > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Thin Evidence</div>
-                {sv.weak_evidence_skills.map((s: string, i: number) => (
+                {sv.weak_evidence_skills.map((s: any, i: number) => (
                   <IssueItem key={i} text={`"${s}" mentioned once without context or outcome`} type="warn" />
                 ))}
               </div>
@@ -1073,7 +1076,7 @@ export default function StageReport() {
               <div style={{ padding: '12px 16px', background: 'var(--accent-dim)', border: '1px solid rgba(124,111,247,0.2)', borderRadius: 8 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Add These to Your Skills Section</div>
                 <div className="flex" style={{ gap: 6, flexWrap: 'wrap' }}>
-                  {sv.hidden_skills_detected.map((s: string, i: number) => <span key={i} className="badge badge-accent">{s}</span>)}
+                  {sv.hidden_skills_detected.map((s: any, i: number) => <span key={i} className="badge badge-accent">{safeStr(s)}</span>)}
                 </div>
               </div>
             )}
@@ -1104,8 +1107,8 @@ export default function StageReport() {
             {(ls?.signals_found?.length || 0) > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Leadership Evidence Found</div>
-                {ls.signals_found.map((s: string, i: number) => (
-                  <div key={i} style={{ fontSize: 13, color: 'var(--green)', marginBottom: 6, display: 'flex', gap: 8 }}><span>✓</span><span>{s}</span></div>
+                {ls.signals_found.map((s: any, i: number) => (
+                  <div key={i} style={{ fontSize: 13, color: 'var(--green)', marginBottom: 6, display: 'flex', gap: 8 }}><span>✓</span><span>{safeStr(s)}</span></div>
                 ))}
               </div>
             )}
