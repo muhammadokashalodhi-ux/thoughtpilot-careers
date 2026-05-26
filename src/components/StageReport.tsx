@@ -903,4 +903,152 @@ export default function StageReport() {
                 <div style={{ fontSize: 12, color: 'var(--text2)' }}>{cs?.brand_consistency}</div>
               </div>
             </div>
-            <p styl
+            <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.65, marginBottom: 14 }}>{cs?.career_arc_summary}</p>
+            {cs?.narrative_gaps?.map((g: string, i: number) => <IssueItem key={i} text={g} type="warn" />)}
+            <FAQ q="How do I show progression without title changes?" a="Show what expanded inside each role: larger budgets, more complex stakeholders, broader geography, higher-stakes decisions. Progression is about scope and impact, not just title." />
+          </ReportSection>
+
+          {/* Skill Evidence */}
+          <ReportSection id="skill-evidence" icon="✅" title="Skill Evidence"
+            issueCount={(sv?.unsupported_skills?.length || 0) + (sv?.weak_evidence_skills?.length || 0)}
+            status={(sv?.unsupported_skills?.length || 0) === 0 ? 'pass' : 'warn'}>
+            <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.65, marginBottom: 16 }}>
+              Every skill in your skills section needs to appear in your experience bullets. Recruiters
+              compare the two — unsupported skills look like keyword stuffing and damage credibility.
+              Skills with evidence build trust; skills without it create doubt.
+            </p>
+            {(sv?.verified_skills?.length || 0) > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Verified — Evidence Found</div>
+                <div className="flex" style={{ gap: 6, flexWrap: 'wrap' }}>
+                  {sv.verified_skills.slice(0, 10).map((s: string, i: number) => <span key={i} className="badge badge-green">✓ {s}</span>)}
+                </div>
+              </div>
+            )}
+            {(sv?.unsupported_skills?.length || 0) > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--red)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>No Supporting Evidence Found</div>
+                {sv.unsupported_skills.map((s: string, i: number) => (
+                  <IssueItem key={i} text={`"${s}" listed in skills but never demonstrated in experience`} type="error" />
+                ))}
+              </div>
+            )}
+            {(sv?.weak_evidence_skills?.length || 0) > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Thin Evidence</div>
+                {sv.weak_evidence_skills.map((s: string, i: number) => (
+                  <IssueItem key={i} text={`"${s}" mentioned once without context or outcome`} type="warn" />
+                ))}
+              </div>
+            )}
+            {(sv?.hidden_skills_detected?.length || 0) > 0 && (
+              <div style={{ padding: '12px 16px', background: 'var(--accent-dim)', border: '1px solid rgba(124,111,247,0.2)', borderRadius: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Add These to Your Skills Section</div>
+                <div className="flex" style={{ gap: 6, flexWrap: 'wrap' }}>
+                  {sv.hidden_skills_detected.map((s: string, i: number) => <span key={i} className="badge badge-accent">{s}</span>)}
+                </div>
+              </div>
+            )}
+            <FAQ q="What do I do with unsupported skills?" a="Either add a bullet that demonstrates the skill in action, or remove it. A skill listed but never shown creates an expectation you cannot meet in the interview." />
+          </ReportSection>
+
+          {/* Leadership Signals */}
+          <ReportSection id="leadership" icon="🎖️" title="Leadership Signals"
+            issueCount={ls?.missing_signals?.length || 0}
+            status={(ls?.score || 0) >= 75 ? 'pass' : (ls?.score || 0) >= 55 ? 'warn' : 'fail'}>
+            <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.65, marginBottom: 16 }}>
+              For mid-to-senior roles, recruiters look past execution and search for evidence of ownership,
+              influence, and strategic thinking. Candidates who only describe tasks get positioned lower
+              than those who show they drove outcomes and influenced decisions.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+              <div style={{ padding: '14px', background: 'var(--bg3)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 28, fontWeight: 800, color: (ls?.score || 0) >= 75 ? 'var(--green)' : 'var(--amber)', fontFamily: 'Sora,sans-serif', marginBottom: 4 }}>{ls?.score || 0}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>Leadership Score</div>
+              </div>
+              <div style={{ padding: '14px', background: 'var(--bg3)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 3 }}>Seniority alignment</div>
+                <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>{ls?.seniority_alignment}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 3 }}>Strategic ownership</div>
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{ls?.strategic_ownership_strength}</div>
+              </div>
+            </div>
+            {(ls?.signals_found?.length || 0) > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--green)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Leadership Evidence Found</div>
+                {ls.signals_found.map((s: string, i: number) => (
+                  <div key={i} style={{ fontSize: 13, color: 'var(--green)', marginBottom: 6, display: 'flex', gap: 8 }}><span>✓</span><span>{s}</span></div>
+                ))}
+              </div>
+            )}
+            {(ls?.missing_signals?.length || 0) > 0 && (
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--red)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Missing Leadership Evidence</div>
+                {ls.missing_signals.map((s: string, i: number) => <IssueItem key={i} text={s} type="error" />)}
+              </div>
+            )}
+            {(ls?.improvement_suggestions?.length || 0) > 0 && (
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>How to Strengthen Leadership Framing</div>
+                {ls.improvement_suggestions.map((s: string, i: number) => <IssueItem key={i} text={s} type="info" />)}
+              </div>
+            )}
+            <FAQ q="Can I show leadership without being a manager?" a="Yes. Leadership signals include: owning a project end-to-end, driving cross-functional decisions, managing vendor relationships with authority, or being the go-to expert for a strategic domain." />
+            <FAQ q="What is people management strength?" a="Evidence that you have hired, managed, developed, or made performance decisions about other people. At senior levels, the absence of this makes recruiters question whether you can lead teams, not just processes." />
+          </ReportSection>
+
+          {/* Executive Presence */}
+          <ReportSection id="executive-presence" icon="👔" title="Executive Presence"
+            issueCount={(rr?.executive_presence_score || 0) < 70 ? 1 : 0}
+            status={(rr?.executive_presence_score || 0) >= 75 ? 'pass' : 'warn'}>
+            <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.65, marginBottom: 16 }}>
+              Executive presence on a resume is the first impression a senior hiring manager forms before
+              reading a single bullet — the combination of formatting confidence, language authority,
+              career framing, and how you position your professional identity.
+            </p>
+            <div style={{ padding: '16px 20px', background: 'var(--bg3)', borderRadius: 10, border: '1px solid var(--border)', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                <div style={{ textAlign: 'center', flexShrink: 0 }}>
+                  <div style={{ fontSize: 36, fontWeight: 800, color: (rr?.executive_presence_score || 0) >= 75 ? 'var(--green)' : 'var(--amber)', fontFamily: 'Sora,sans-serif' }}>
+                    {rr?.executive_presence_score || 0}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>Presence Score</div>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Recruiter First Impression</div>
+                  <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, fontStyle: 'italic' }}>"{rr?.first_impression}"</p>
+                </div>
+              </div>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Trust Level</div>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 99,
+                background: rr?.trust_level === 'high' ? 'var(--green-dim)' : rr?.trust_level === 'medium' ? 'var(--amber-dim)' : 'var(--red-dim)',
+                color: rr?.trust_level === 'high' ? 'var(--green)' : rr?.trust_level === 'medium' ? 'var(--amber)' : 'var(--red)',
+                fontSize: 13, fontWeight: 600,
+              }}>
+                {rr?.trust_level === 'high' ? '✓ High Trust' : rr?.trust_level === 'medium' ? '⚠ Medium Trust' : '⛔ Low Trust'}
+              </div>
+            </div>
+            {rr?.possible_concerns?.map((c: string, i: number) => <IssueItem key={i} text={c} type="warn" />)}
+            <FAQ q="What signals executive presence on a resume?" a="Confident, direct language without hedging. Strategic framing at business level, not task level. A concise summary that positions you rather than listing duties. Clean structure that conveys control." />
+          </ReportSection>
+
+          {/* Footer nav */}
+          <div style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            padding: '20px 24px', background: 'var(--bg2)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-lg)', flexWrap: 'wrap', gap: 12,
+          }}>
+            <button className="btn btn-ghost" onClick={() => setStage(1)}>← Back to Upload</button>
+            <div className="flex gap-3">
+              <button className="btn btn-secondary" onClick={() => setStage(7)}>Skip → Export</button>
+              <button className="btn btn-primary btn-lg" onClick={() => setStage(7)}>Job Match & Export →</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
