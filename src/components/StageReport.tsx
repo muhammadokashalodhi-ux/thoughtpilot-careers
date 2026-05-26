@@ -133,7 +133,7 @@ function RepeatRow({ word, count, alternatives }: { word: string; count: number;
   return (
     <div style={{ padding: '12px 16px', background: 'var(--bg3)', borderRadius: 8, marginBottom: 8, border: '1px solid var(--border)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--amber)' }}>{count}× &quot;{word}&quot;</span>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--amber)' }}>{count}× "{word}"</span>
         <span style={{ fontSize: 12, color: 'var(--text3)' }}>— repeated too often</span>
       </div>
       <div style={{ fontSize: 12, color: 'var(--text3)' }}>
@@ -151,7 +151,7 @@ function BulletRow({ text, tag }: { text: string; tag: string }) {
   return (
     <div style={{ padding: '10px 14px', borderRadius: 8, marginBottom: 6, background: 'var(--red-dim)', border: '1px solid rgba(255,91,91,0.15)' }}>
       <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--red)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>{tag}</div>
-      <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5, fontStyle: 'italic' }}>&quot;{text}&quot;</div>
+      <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.5, fontStyle: 'italic' }}>"{text}"</div>
     </div>
   );
 }
@@ -188,7 +188,7 @@ function RiskCard({ risk, defaultOpen }: { risk: any; defaultOpen?: boolean }) {
           </div>
           <div style={{ background: 'var(--accent-dim)', border: '1px solid rgba(124,111,247,0.2)', borderRadius: 8, padding: '12px 14px' }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 5 }}>Expect This Question</div>
-            <p style={{ fontSize: 13, color: 'var(--text)', fontStyle: 'italic' }}>&quot;{risk.sample_interview_question}&quot;</p>
+            <p style={{ fontSize: 13, color: 'var(--text)', fontStyle: 'italic' }}>"{risk.sample_interview_question}"</p>
           </div>
         </div>
       )}
@@ -375,7 +375,7 @@ export default function StageReport() {
             <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.65, marginBottom: 16 }}>
               Recruiters use Applicant Tracking Systems to filter resumes before a human ever reads them.
               A high parse rate means the ATS correctly extracts your name, titles, dates, and skills —
-              so your resume actually reaches a recruiter&apos;s screen instead of being filtered out automatically.
+              so your resume actually reaches a recruiter's screen instead of being filtered out automatically.
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
               {[{ label: 'Parse Rate', val: ats?.parse_rate || 0 }, { label: 'Readability Score', val: ats?.readability_score || 0 }].map(item => {
@@ -480,7 +480,7 @@ export default function StageReport() {
             status={getDimScore('recruiter_readability') >= 80 ? 'pass' : 'warn'}>
             <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.65, marginBottom: 16 }}>
               A single typo signals carelessness. Recruiters interpret grammar errors as a preview of
-              your work quality — if you can&apos;t proofread the document you&apos;re using to make a first impression,
+              your work quality — if you can't proofread the document you're using to make a first impression,
               what does that say about your attention to detail on the job?
             </p>
             <Verdict
@@ -502,7 +502,7 @@ export default function StageReport() {
             status={((bq?.too_short?.length || 0) + (bq?.too_long?.length || 0)) === 0 ? 'pass' : 'warn'}>
             <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.65, marginBottom: 16 }}>
               Recruiters spend 6–10 seconds on initial scan. Bullets outside the 10–35 word range break
-              reading rhythm — too short and they feel vague, too long and they&apos;re impossible to skim.
+              reading rhythm — too short and they feel vague, too long and they're impossible to skim.
             </p>
             <Verdict
               pass={((bq?.too_short?.length || 0) + (bq?.too_long?.length || 0)) === 0}
@@ -538,7 +538,7 @@ export default function StageReport() {
             issueCount={pending} status={pending === 0 ? 'pass' : 'warn'}>
             <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.65, marginBottom: 16 }}>
               AI-generated improvements across ATS compatibility, recruiter trust, humanization, leadership
-              framing, and credibility. Approve what fits, edit to match your voice, discard what doesn&apos;t apply.
+              framing, and credibility. Approve what fits, edit to match your voice, discard what doesn't apply.
             </p>
             <div className="flex items-center justify-between" style={{ marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
               <div className="flex gap-3">
@@ -578,7 +578,7 @@ export default function StageReport() {
           <ReportSection id="sections-essential" icon="📋" title="Essential Sections" issueCount={0} status="pass">
             <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.65, marginBottom: 16 }}>
               The three non-negotiable sections every professional resume must contain. Missing any creates
-              immediate doubt about the candidate&apos;s understanding of professional standards.
+              immediate doubt about the candidate's understanding of professional standards.
             </p>
             <Verdict pass={true} passText="All essential sections detected: Professional Summary, Work Experience, and Education." failText="" />
             <FAQ q="What are the absolute must-haves?" a="Experience (with dates, titles, company names), Education (degree, institution, year), and a Summary or Profile. Skills is strongly recommended but varies by industry." />
@@ -587,7 +587,7 @@ export default function StageReport() {
           {/* ── Contact Information ── */}
           <ReportSection id="sections-contact" icon="📞" title="Contact Information" issueCount={0} status="pass">
             <p style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.65, marginBottom: 16 }}>
-              Missing or buried contact details means an automatic pass — not because you&apos;re unqualified,
+              Missing or buried contact details means an automatic pass — not because you're unqualified,
               but because a recruiter with 200 other resumes will simply move on.
             </p>
             <Verdict pass={true} passText="Contact information is present and clearly formatted at the top of your resume." failText="" />
@@ -746,7 +746,7 @@ export default function StageReport() {
                     return (
                       <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '14px 16px' }}>
                         <div style={{ fontSize: 10, fontWeight: 700, color: dc, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{claim.difficulty_level} difficulty</div>
-                        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>&quot;{claim.claim}&quot;</div>
+                        <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 6 }}>"{claim.claim}"</div>
                         <div style={{ fontSize: 12, color: 'var(--amber)', marginBottom: 8 }}>⚠ {claim.risk_reason}</div>
                         <div style={{ background: 'var(--green-dim)', borderRadius: 6, padding: '8px 10px', fontSize: 12, color: 'var(--green)' }}>💡 {claim.prep_advice}</div>
                       </div>
@@ -791,7 +791,7 @@ export default function StageReport() {
             )}
             {(pb?.missing_common_skills?.length || 0) > 0 && (
               <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Skills Typical Peers Have That You&apos;re Missing</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Skills Typical Peers Have That You're Missing</div>
                 {pb.missing_common_skills.map((s: string, i: number) => <IssueItem key={i} text={s} type="warn" />)}
               </div>
             )}
