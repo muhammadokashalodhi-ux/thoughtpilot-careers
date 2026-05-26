@@ -1,43 +1,205 @@
 'use client';
-import { useEffect } from 'react';
+
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import { useCareerStore } from '@/store/career';
 import CareerSuiteApp from '@/components/CareerSuiteApp';
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'https://api.thoughtpilotai.com';
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://app.thoughtpilotai.com';
+const API     = process.env.NEXT_PUBLIC_API_URL  || 'https://api.thoughtpilotai.com';
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL  || 'https://app.thoughtpilotai.com';
+const COOKIE_DOMAIN = '.thoughtpilotai.com';
 
+// ── Theme helpers ─────────────────────────────────────────────────────────────
+function getTheme(): 'dark' | 'light' {
+  if (typeof window === 'undefined') return 'dark';
+  return (localStorage.getItem('tp_theme') as 'dark' | 'light') || 'dark';
+}
+
+function setTheme(t: 'dark' | 'light') {
+  localStorage.setItem('tp_theme', t);
+  document.documentElement.setAttribute('data-theme', t);
+}
+
+// ── Navbar ────────────────────────────────────────────────────────────────────
+function Navbar({ userName }: { userName?: string }) {
+  const [theme, setThemeState] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => { setThemeState(getTheme()); }, []);
+
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    setThemeState(next);
+  }
+
+  return (
+    <nav className="cs-nav">
+      <a href={APP_URL} className="cs-nav-brand">
+        <img src="/icons/icon-32.png" alt="ThoughtPilot AI" className="cs-nav-logo" />
+        <div>
+          <div className="cs-nav-title font-display">ThoughtPilot AI</div>
+          <div className="cs-nav-subtitle font-sans">Career Suite</div>
+        </div>
+      </a>
+
+      <div className="cs-nav-right">
+        {userName && (
+          <span className="font-sans" style={{ fontSize: 13, color: 'var(--text3)' }}>
+            {userName}
+          </span>
+        )}
+        <button className="theme-toggle" onClick={toggleTheme} title="Toggle theme">
+          {theme === 'dark' ? '☀️' : '🌙'}
+        </button>
+        <a href={APP_URL + '/dashboard'} className="cs-back-link font-sans">
+          ← <span>Back to dashboard</span>
+        </a>
+      </div>
+    </nav>
+  );
+}
+
+// ── Loading screen ────────────────────────────────────────────────────────────
+function LoadingScreen() {
+  return (
+    <>
+      <Navbar />
+      <div className="cs-main" style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexDirection: 'column', gap: 16, minHeight: '100vh',
+      }}>
+        <div style={{
+          width: 44, height: 44, borderRadius: '50%',
+          border: '3px solid var(--bg3)', borderTopColor: 'var(--accent)',
+          animation: 'spin 0.9s linear infinite',
+        }} />
+        <span className="font-sans" style={{ color: 'var(--text3)', fontSize: 14 }}>
+          Loading Career Suite…
+        </span>
+      </div>
+    </>
+  );
+}
+
+// ── Login / unauthenticated screen ────────────────────────────────────────────
+function LoginScreen() {
+  const redirectUrl = encodeURIComponent(
+    typeof window !== 'undefined' ? window.location.href : 'https://careers.thoughtpilotai.com'
+  );
+
+  const features = [
+    { icon: '🧠', title: 'Recruiter Intelligence',  desc: '18-dimension CV analysis' },
+    { icon: '🔍', title: 'Authenticity Check',       desc: 'AI-pattern detection' },
+    { icon: '🎯', title: 'Interview Risk Prep',       desc: 'Flag hard questions early' },
+    { icon: '📄', title: '5 Export Templates',        desc: 'PDF or Word download' },
+  ];
+
+  return (
+    <>
+      <Navbar />
+      <div className="cs-main" style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        padding: '40px 24px',
+      }}>
+        <div style={{
+          maxWidth: 500, width: '100%', textAlign: 'center',
+          animation: 'fadeIn 0.4s ease',
+        }}>
+
+          {/* Icon */}
+          <div style={{
+            width: 72, height: 72, borderRadius: 18,
+            background: 'linear-gradient(135deg, var(--accent), var(--accent2))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            margin: '0 auto 28px',
+            boxShadow: '0 8px 32px rgba(37,99,235,0.35)',
+          }}>
+            <img src="/icons/icon-96.png" alt="" style={{ width: 52, height: 52, borderRadius: 12 }} />
+          </div>
+
+          <h1 className="font-display" style={{ fontSize: 28, marginBottom: 12, letterSpacing: '-0.5px' }}>
+            Career Suite
+          </h1>
+          <p className="font-sans" style={{ color: 'var(--text2)', marginBottom: 6, lineHeight: 1.7 }}>
+            AI that thinks like a senior recruiter — 18-dimension CV analysis, ATS optimisation and professional exports.
+          </p>
+          <p className="font-sans" style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 36 }}>
+            Sign in with your ThoughtPilot account to get started.
+          </p>
+
+          {/* CTA */}
+          <a
+            href={`${APP_URL}/login?redirect=${redirectUrl}`}
+            className="btn btn-primary btn-lg font-display"
+            style={{
+              display: 'inline-flex', margin: '0 auto 40px',
+              boxShadow: '0 4px 20px rgba(37,99,235,0.35)',
+              letterSpacing: '-0.3px',
+            }}
+          >
+            Sign in with ThoughtPilot →
+          </a>
+
+          {/* Feature grid */}
+          <div style={{
+            display: 'grid', gridTemplateColumns: '1fr 1fr',
+            gap: 10, textAlign: 'left',
+          }}>
+            {features.map(f => (
+              <div key={f.title} className="card" style={{ padding: '14px 16px' }}>
+                <div style={{ fontSize: 22, marginBottom: 8 }}>{f.icon}</div>
+                <div className="font-display" style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>
+                  {f.title}
+                </div>
+                <div className="font-sans" style={{ fontSize: 12, color: 'var(--text3)' }}>
+                  {f.desc}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <p className="font-sans" style={{ marginTop: 28, fontSize: 12, color: 'var(--text3)' }}>
+            Don't have an account?{' '}
+            <a href={`${APP_URL}/signup`} style={{ color: 'var(--accent)', fontWeight: 600 }}>
+              Sign up free
+            </a>
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
 export default function Page() {
   const { handoff, setHandoff, authLoading, setAuthLoading } = useCareerStore();
 
   useEffect(() => {
+    // Apply saved theme on mount
+    const saved = localStorage.getItem('tp_theme');
+    if (saved) document.documentElement.setAttribute('data-theme', saved);
+
     const init = async () => {
-      // ── Step 1: Check URL for token passed from main app ──
-      const params = new URLSearchParams(window.location.search);
+      // Step 1: Check URL for token passed from main app
+      const params   = new URLSearchParams(window.location.search);
       const urlToken = params.get('token');
 
       if (urlToken) {
-        // Store it in cookie so future requests use it
         Cookies.set('tp_token', urlToken, {
-          expires: 7,
+          expires:  7,
           sameSite: 'lax',
-          secure: true,
+          secure:   true,
+          domain:   COOKIE_DOMAIN,
         });
-        // Clean the token out of the URL without triggering a reload
-        const cleanUrl = window.location.pathname;
-        window.history.replaceState({}, '', cleanUrl);
+        window.history.replaceState({}, '', window.location.pathname);
       }
 
-      // ── Step 2: Get token from cookie (either just set or pre-existing) ──
+      // Step 2: Get token from cookie
       const token = urlToken || Cookies.get('tp_token');
+      if (!token) { setAuthLoading(false); return; }
 
-      if (!token) {
-        setAuthLoading(false);
-        return;
-      }
-
-      // ── Step 3: Call handoff with token as Authorization header ──
+      // Step 3: Handoff
       try {
         const { data } = await axios.get(`${API}/api/career/handoff`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -45,7 +207,7 @@ export default function Page() {
         });
         setHandoff(data);
       } catch (err) {
-        // Token invalid or expired — clear and show login
+        Cookies.remove('tp_token', { domain: COOKIE_DOMAIN });
         Cookies.remove('tp_token');
         console.error('[handoff] failed:', err);
       } finally {
@@ -56,93 +218,15 @@ export default function Page() {
     init();
   }, []);
 
-  if (authLoading) {
-    return (
-      <div style={{
-        minHeight: '100vh', background: 'var(--bg)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        flexDirection: 'column', gap: 16,
-      }}>
-        <div style={{
-          width: 44, height: 44, borderRadius: '50%',
-          border: '3px solid var(--bg3)', borderTopColor: 'var(--accent)',
-          animation: 'spin 0.9s linear infinite',
-        }} />
-        <span style={{ color: 'var(--text3)', fontSize: 14 }}>
-          Loading ThoughtPilot Career Suite…
-        </span>
+  if (authLoading) return <LoadingScreen />;
+  if (!handoff)    return <LoginScreen />;
+
+  return (
+    <>
+      <Navbar userName={handoff.user?.full_name?.split(' ')[0]} />
+      <div className="cs-main">
+        <CareerSuiteApp />
       </div>
-    );
-  }
-
-  if (!handoff) {
-    return (
-      <div style={{
-        minHeight: '100vh', background: 'var(--bg)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-      }}>
-        <div style={{
-          textAlign: 'center', maxWidth: 480, padding: '0 24px',
-          animation: 'fadeIn 0.4s ease',
-        }}>
-          <div style={{
-            width: 72, height: 72, borderRadius: 20,
-            background: 'linear-gradient(135deg, var(--accent), #9b6ff5)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            margin: '0 auto 24px', fontSize: 32,
-            boxShadow: '0 8px 32px rgba(124,111,247,0.4)',
-          }}>
-            ✈️
-          </div>
-
-          <h1 style={{ fontSize: 28, marginBottom: 12, fontFamily: 'Sora, sans-serif' }}>
-            ThoughtPilot Career Suite
-          </h1>
-          <p style={{ color: 'var(--text2)', marginBottom: 8, lineHeight: 1.6 }}>
-            AI-powered recruiter intelligence, ATS optimisation, and professional exports.
-          </p>
-          <p style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 32 }}>
-            Sign in with your ThoughtPilot account to get started.
-          </p>
-
-          <a
-            href={`${APP_URL}/login?redirect=${encodeURIComponent('https://careers.thoughtpilotai.com')}`}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 10,
-              background: 'var(--accent)', color: '#fff',
-              padding: '14px 32px', borderRadius: 'var(--radius)',
-              textDecoration: 'none', fontWeight: 600, fontSize: 16,
-              fontFamily: 'DM Sans, sans-serif', transition: 'all 0.2s ease',
-              boxShadow: '0 4px 20px rgba(124,111,247,0.4)',
-            }}
-          >
-            ✈️ Sign in with ThoughtPilot
-          </a>
-
-          <div style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12,
-            marginTop: 40, textAlign: 'left',
-          }}>
-            {[
-              { icon: '🧠', title: 'Recruiter Intelligence', desc: '18-dimension analysis' },
-              { icon: '🔍', title: 'Authenticity Check', desc: 'AI-pattern detection' },
-              { icon: '🎯', title: 'Interview Risks', desc: 'Prep for hard questions' },
-              { icon: '📄', title: '5 Templates', desc: 'Export as PDF or Word' },
-            ].map((f) => (
-              <div key={f.title} style={{
-                background: 'var(--bg2)', border: '1px solid var(--border)',
-                borderRadius: 12, padding: '14px',
-              }}>
-                <div style={{ fontSize: 24, marginBottom: 6 }}>{f.icon}</div>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 3 }}>{f.title}</div>
-                <div style={{ fontSize: 12, color: 'var(--text3)' }}>{f.desc}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return <CareerSuiteApp />;
+    </>
+  );
 }
