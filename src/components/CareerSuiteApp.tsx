@@ -86,44 +86,17 @@ export default function CareerSuiteApp() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <header style={{
-        background: 'var(--bg2)', borderBottom: '1px solid var(--border)',
-        padding: '0 24px', height: 56,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        position: 'sticky', top: 0, zIndex: 100, backdropFilter: 'blur(12px)',
+      {/* Progress bar sits just below the fixed navbar from page.tsx */}
+      <div style={{
+        position: 'sticky', top: 'calc(60px + env(safe-area-inset-top, 0px))',
+        zIndex: 90, background: 'var(--bg2)',
+        borderBottom: '1px solid var(--border)',
+        padding: '12px 24px',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontFamily: 'Sora, sans-serif', fontWeight: 700, fontSize: 16, color: 'var(--accent)' }}>
-            ✈️ ThoughtPilot
-          </span>
-          <span style={{ color: 'var(--border-strong)', fontSize: 16 }}>|</span>
-          <span style={{ fontSize: 13, color: 'var(--text2)', fontWeight: 500 }}>Recruiter Intelligence</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {handoff && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <div style={{
-                width: 28, height: 28, borderRadius: '50%',
-                background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 12, fontWeight: 700, color: '#fff',
-              }}>
-                {handoff.user.full_name?.[0]?.toUpperCase() || 'U'}
-              </div>
-              <span style={{ fontSize: 13, color: 'var(--text2)' }}>{handoff.user.full_name}</span>
-              <span className="badge badge-accent" style={{ fontSize: 10 }}>{handoff.user.plan}</span>
-            </div>
-          )}
-          <a
-            href={process.env.NEXT_PUBLIC_APP_URL || 'https://app.thoughtpilotai.com'}
-            className="btn btn-ghost btn-sm"
-          >
-            ← ThoughtPilot
-          </a>
-        </div>
-      </header>
+        <ProgressBar current={progressStage} />
+      </div>
 
       <main style={{ padding: '32px 24px', maxWidth: 1100, margin: '0 auto' }}>
-        <ProgressBar current={progressStage} />
         <StageContent stage={stage} />
       </main>
 

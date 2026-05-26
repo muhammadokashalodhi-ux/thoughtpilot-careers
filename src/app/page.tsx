@@ -36,7 +36,24 @@ function Navbar({ userName }: { userName?: string }) {
   return (
     <nav className="cs-nav">
       <a href={APP_URL} className="cs-nav-brand">
-        <img src="/icons/icon-32.png" alt="ThoughtPilot AI" className="cs-nav-logo" />
+        <div style={{ position: 'relative', width: 32, height: 32, flexShrink: 0 }}>
+          {/* Gradient fallback — always visible behind image */}
+          <div style={{
+            width: 32, height: 32, borderRadius: 8,
+            background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 16, color: '#fff', fontWeight: 700,
+          }}>tp</div>
+          {/* Actual icon — covers the fallback when it loads */}
+          <img
+            src="/icons/icon-32.png"
+            alt="ThoughtPilot AI"
+            className="cs-nav-logo"
+            style={{ position: 'absolute', inset: 0, width: 32, height: 32, borderRadius: 8 }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+          />
+        </div>
         <div>
           <div className="cs-nav-title font-display">ThoughtPilot AI</div>
           <div className="cs-nav-subtitle font-sans">Career Suite</div>
@@ -115,7 +132,7 @@ function LoginScreen() {
             margin: '0 auto 28px',
             boxShadow: '0 8px 32px rgba(37,99,235,0.35)',
           }}>
-            <img src="/icons/icon-96.png" alt="" style={{ width: 52, height: 52, borderRadius: 12 }} />
+            <span style={{ fontSize: 32, fontFamily: 'Sora, sans-serif', fontWeight: 800, color: '#fff', letterSpacing: '-1px' }}>tp</span>
           </div>
 
           <h1 className="font-display" style={{ fontSize: 28, marginBottom: 12, letterSpacing: '-0.5px' }}>
