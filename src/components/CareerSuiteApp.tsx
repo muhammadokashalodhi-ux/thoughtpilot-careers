@@ -2,48 +2,45 @@
 import { useCareerStore, Stage } from '@/store/career';
 import StageUpload from './StageUpload';
 import StageAnalysis from './StageAnalysis';
-import StageATSIntelligence from './StageATSIntelligence';
-import StageRecruiterIntelligence from './StageRecruiterIntelligence';
-import StageHumanAuthenticity from './StageHumanAuthenticity';
-import StageInterviewRisk from './StageInterviewRisk';
+import StageReport from './StageReport';
 import StageExport from './StageExport';
 
 const STAGES: { num: Stage; label: string; icon: string }[] = [
   { num: 1, label: 'Upload', icon: '📄' },
   { num: 2, label: 'Scanning', icon: '🤖' },
-  { num: 3, label: 'ATS Intel', icon: '⚡' },
-  { num: 4, label: 'Recruiter', icon: '🧠' },
-  { num: 5, label: 'Authenticity', icon: '🔍' },
-  { num: 6, label: 'Interview', icon: '🎯' },
+  { num: 3, label: 'Full Report', icon: '📊' },
   { num: 7, label: 'Export', icon: '⬇️' },
 ];
 
 function ProgressBar({ current }: { current: Stage }) {
+  const displayStages = STAGES;
+  const currentIndex = displayStages.findIndex(s => s.num === current);
+
   return (
-    <div style={{ width: '100%', marginBottom: 36, overflowX: 'auto' }}>
+    <div style={{ width: '100%', marginBottom: 32, overflowX: 'auto' }}>
       <div style={{
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-        gap: 0, minWidth: 480, padding: '4px 0 8px',
+        gap: 0, minWidth: 320, padding: '4px 0 8px',
       }}>
-        {STAGES.map((s, i) => {
-          const isDone = s.num < current;
-          const isActive = s.num === current;
+        {displayStages.map((s, i) => {
+          const isDone = currentIndex > i;
+          const isActive = currentIndex === i;
           return (
             <div key={s.num} style={{ display: 'flex', alignItems: 'flex-start' }}>
               {i > 0 && (
                 <div style={{
-                  width: 28, height: 2, marginTop: 18,
+                  width: 48, height: 2, marginTop: 18,
                   background: isDone ? 'var(--accent)' : 'var(--bg3)',
                   transition: 'background 0.4s ease', flexShrink: 0,
                 }} />
               )}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
                 <div style={{
-                  width: 36, height: 36, borderRadius: '50%',
+                  width: 38, height: 38, borderRadius: '50%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: isDone ? 'var(--accent)' : isActive ? 'var(--accent)' : 'var(--bg3)',
                   border: isActive ? '2px solid var(--accent-hover)' : 'none',
-                  fontSize: isDone ? 13 : 15, fontWeight: 700,
+                  fontSize: isDone ? 14 : 16, fontWeight: 700,
                   color: isDone || isActive ? '#fff' : 'var(--text3)',
                   transition: 'all 0.3s ease',
                   boxShadow: isActive ? '0 0 0 4px var(--accent-dim)' : undefined,
@@ -52,10 +49,9 @@ function ProgressBar({ current }: { current: Stage }) {
                   {isDone ? '✓' : s.icon}
                 </div>
                 <span style={{
-                  fontSize: 10, fontWeight: isActive ? 600 : 400,
+                  fontSize: 11, fontWeight: isActive ? 600 : 400,
                   color: isActive ? 'var(--accent)' : isDone ? 'var(--text2)' : 'var(--text3)',
-                  whiteSpace: 'nowrap', textAlign: 'center', maxWidth: 56,
-                  lineHeight: 1.2,
+                  whiteSpace: 'nowrap', textAlign: 'center',
                 }}>
                   {s.label}
                 </span>
@@ -72,10 +68,11 @@ function StageContent({ stage }: { stage: Stage }) {
   switch (stage) {
     case 1: return <StageUpload />;
     case 2: return <StageAnalysis />;
-    case 3: return <StageATSIntelligence />;
-    case 4: return <StageRecruiterIntelligence />;
-    case 5: return <StageHumanAuthenticity />;
-    case 6: return <StageInterviewRisk />;
+    // Stages 3, 4, 5, 6 all show the unified report
+    case 3:
+    case 4:
+    case 5:
+    case 6: return <StageReport />;
     case 7: return <StageExport />;
     default: return <StageUpload />;
   }
@@ -83,6 +80,9 @@ function StageContent({ stage }: { stage: Stage }) {
 
 export default function CareerSuiteApp() {
   const { stage, handoff } = useCareerStore();
+
+  // Determine which progress step to highlight
+  const progressStage: Stage = (stage >= 3 && stage <= 6) ? 3 : stage;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -116,12 +116,14 @@ export default function CareerSuiteApp() {
           <a
             href={process.env.NEXT_PUBLIC_APP_URL || 'https://app.thoughtpilotai.com'}
             className="btn btn-ghost btn-sm"
-          >← ThoughtPilot</a>
+          >
+            ← ThoughtPilot
+          </a>
         </div>
       </header>
 
-      <main style={{ padding: '32px 24px', maxWidth: 1000, margin: '0 auto' }}>
-        <ProgressBar current={stage} />
+      <main style={{ padding: '32px 24px', maxWidth: 1100, margin: '0 auto' }}>
+        <ProgressBar current={progressStage} />
         <StageContent stage={stage} />
       </main>
 
