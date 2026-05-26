@@ -86,15 +86,29 @@ export default function CareerSuiteApp() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      {/* Progress bar sits just below the fixed navbar from page.tsx */}
-      <div style={{
-        position: 'sticky', top: 'calc(60px + env(safe-area-inset-top, 0px))',
-        zIndex: 90, background: 'var(--bg2)',
-        borderBottom: '1px solid var(--border)',
-        padding: '12px 24px',
-      }}>
+      {/* Progress bar — hides when StageReport scroll hook sets data-progress-hidden */}
+      <div
+        id="cs-progress-bar"
+        style={{
+          position: 'sticky',
+          top: 'calc(60px + env(safe-area-inset-top, 0px))',
+          zIndex: 90,
+          background: 'var(--bg2)',
+          borderBottom: '1px solid var(--border)',
+          padding: '12px 24px',
+          transition: 'transform 0.3s ease, opacity 0.3s ease',
+        }}
+      >
         <ProgressBar current={progressStage} />
       </div>
+
+      <style>{`
+        #cs-progress-bar.hidden {
+          transform: translateY(-110%);
+          opacity: 0;
+          pointer-events: none;
+        }
+      `}</style>
 
       <main style={{ padding: '32px 24px', maxWidth: 1100, margin: '0 auto' }}>
         <StageContent stage={stage} />

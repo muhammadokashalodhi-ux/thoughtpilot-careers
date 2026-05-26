@@ -60,7 +60,10 @@ ANALYSIS RULES:
 - NEVER accuse of lying — identify "credibility risks" as perception concerns
 - Focus on how recruiters THINK and FEEL when reading
 - Simulate the internal monologue of a senior recruiter
-- Quote exact text from the CV when identifying issues
+- CRITICAL: Quote exact text from the CV when identifying issues. NEVER say "some bullets" or "certain sections" — always name the specific section and quote the specific text verbatim. If you cannot quote the exact text, do not raise the issue.
+- For bullet_quality: always include the FULL bullet text (not a truncated summary) so the user knows exactly which line to fix
+- For grammar/spelling issues: quote the exact phrase with the error, then show the correction
+- For quantification issues: quote the exact bullet lacking metrics, then suggest a specific metric to add
 
 Analyze the resume across ALL 18 dimensions:
 1. ATS compatibility & parse rate
@@ -101,8 +104,8 @@ Return ONLY valid JSON matching this exact structure — no preamble, no markdow
       "name": "<human name>",
       "score": <0-100>,
       "status": "<good|needs_work|poor>",
-      "issues": ["<specific issue — quote exact text from CV>"],
-      "tip": "<one specific actionable fix — not generic advice>"
+      "issues": ["<specific issue — ALWAYS quote the exact CV text causing the issue in double quotes, e.g. \"Cross-functional coordination: Worked with...\": this bullet has no metric>"],
+      "tip": "<one specific actionable fix referencing the actual CV text — never generic>"
     }
   ],
   "changes": [
@@ -119,10 +122,10 @@ Return ONLY valid JSON matching this exact structure — no preamble, no markdow
   "ats_parse_analysis": {
     "parse_rate": <0-100>,
     "readability_score": <0-100>,
-    "issues": ["<issue>"],
-    "problematic_sections": ["<section>"],
-    "format_risks": ["<risk>"],
-    "recommendations": ["<rec>"]
+    "issues": [{"section": "<section name>", "problem": "<specific formatting problem in that section>", "fix": "<exactly how to fix it>"}],
+    "problematic_sections": ["<section name>"],
+    "format_risks": ["<risk with location, e.g. 'Skills section: pipe-separated values A|B|C may not parse'>"],
+    "recommendations": ["<specific actionable recommendation>"]
   },
   "recruiter_reaction": {
     "first_impression": "<honest first impression>",
@@ -180,11 +183,11 @@ Return ONLY valid JSON matching this exact structure — no preamble, no markdow
     "variety_score": <0-100>
   },
   "bullet_quality": {
-    "too_short": ["<bullet>"],
-    "too_long": ["<bullet excerpt>"],
-    "passive_voice": ["<bullet>"],
-    "weak_openings": ["<opening word>"],
-    "generic_bullets": ["<bullet>"],
+    "too_short": [{"text": "<exact bullet verbatim>", "word_count": <n>, "fix": "<suggested rewrite>"}],
+    "too_long": [{"text": "<exact bullet verbatim — first 120 chars>", "word_count": <n>, "fix": "<how to split it>"}],
+    "passive_voice": [{"text": "<exact bullet verbatim>", "fix": "<rewrite in active voice>"}],
+    "weak_openings": [{"verb": "<weak verb>", "bullet_start": "<first 8 words of bullet>", "replacement": "<stronger verb>"}],
+    "generic_bullets": [{"text": "<exact bullet verbatim>", "issue": "<why generic>", "fix": "<specific rewrite with metric placeholder>"}],
     "recommended_structure": "Action + Context + Result"
   },
   "professionalism_checks": {

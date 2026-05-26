@@ -1,8 +1,107 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useCareerStore } from '@/store/career';
 import ScoreRing from './ScoreRing';
 import ChangeCard from './ChangeCard';
+
+// ─── Bullet Quote Card ───────────────────────────────────────────────────────
+// Shows exact bullet text with word count, issue badge, and suggested fix
+function BulletQuote({ text, wordCount, issue, fix, type = 'warn' }: {
+  text: string; wordCount?: number; issue: string; fix?: string; type?: 'warn' | 'error' | 'info';
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const badgeColor = type === 'error' ? 'var(--red)' : type === 'info' ? 'var(--accent)' : 'var(--amber)';
+  const badgeBg    = type === 'error' ? 'var(--red-dim)' : type === 'info' ? 'var(--accent-dim)' : 'var(--amber-dim)';
+  const PREVIEW_LEN = 100;
+  const isLong = text.length > PREVIEW_LEN;
+  const displayText = isLong && !expanded ? text.slice(0, PREVIEW_LEN) + '…' : text;
+
+  return (
+    <div style={{
+      background: 'var(--bg3)', border: '1px solid var(--border)',
+      borderRadius: 10, marginBottom: 10, overflow: 'hidden',
+    }}>
+      {/* Quote block */}
+      <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 12, color: 'var(--text3)', flexShrink: 0, marginTop: 1 }}>❝</span>
+          <p style={{
+            fontSize: 13, color: 'var(--text2)', lineHeight: 1.6, margin: 0,
+            fontStyle: 'italic', flex: 1,
+          }}>
+            {displayText}
+            {isLong && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12, padding: '0 4px' }}
+              >
+                {expanded ? 'less' : 'more'}
+              </button>
+            )}
+          </p>
+          {wordCount !== undefined && (
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 100,
+              background: wordCount > 35 ? 'var(--red-dim)' : wordCount < 10 ? 'var(--amber-dim)' : 'var(--green-soft)',
+              color: wordCount > 35 ? 'var(--red)' : wordCount < 10 ? 'var(--amber)' : 'var(--green)',
+              flexShrink: 0, marginTop: 1,
+            }}>
+              {wordCount}w
+            </span>
+          )}
+        </div>
+      </div>
+      {/* Issue + fix */}
+      <div style={{ padding: '10px 14px' }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
+          <span style={{
+            fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 100,
+            background: badgeBg, color: badgeColor, flexShrink: 0,
+          }}>
+            {type === 'error' ? '⛔' : '⚠️'} {issue}
+          </span>
+          {fix && (
+            <span style={{ fontSize: 12, color: 'var(--green)', lineHeight: 1.5 }}>
+              → {fix}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Weak verb chip ──────────────────────────────────────────────────────────
+function WeakVerbChip({ verb, bulletStart, replacement }: {
+  verb: string; bulletStart: string; replacement: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ display: 'inline-flex', marginBottom: 6, marginRight: 6 }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          background: 'var(--amber-dim)', border: '1px solid rgba(245,166,35,0.3)',
+          borderRadius: 6, padding: '5px 12px', cursor: 'pointer',
+          fontSize: 13, fontWeight: 600, color: 'var(--amber)', fontFamily: 'inherit',
+        }}
+      >
+        {verb} {open ? '▲' : '▼'}
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', zIndex: 10, background: 'var(--bg2)',
+          border: '1px solid var(--border)', borderRadius: 10,
+          padding: '12px 14px', marginTop: 32, maxWidth: 280, boxShadow: 'var(--shadow)',
+        }}>
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>Bullet starting with:</div>
+          <p style={{ fontSize: 12, color: 'var(--text2)', fontStyle: 'italic', marginBottom: 10 }}>"{bulletStart}…"</p>
+          <div style={{ fontSize: 12, color: 'var(--green)' }}>→ Replace with: <strong>{replacement}</strong></div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── FAQ Accordion ─────────────────────────────────────────────────────────
 function FAQ({ q, a }: { q: string; a: string }) {
