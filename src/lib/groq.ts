@@ -31,91 +31,65 @@ async function backendCall(endpoint: string, messages: object[]): Promise<string
 
 function extractJSON(raw: string): string {
   if (!raw || !raw.trim()) throw new Error('Empty response from AI — Groq returned no content');
-
   let json = raw;
   const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (fence) json = fence[1].trim();
   else {
     const start = raw.indexOf('{');
-    const end = raw.lastIndexOf('}');
+    const end   = raw.lastIndexOf('}');
     if (start === -1) throw new Error('No JSON object found in AI response');
-    // If end <= start the JSON was truncated — try to recover
-    if (end <= start) {
-      throw new Error('AI response was truncated — JSON incomplete. Try a shorter CV or retry.');
-    }
+    if (end <= start) throw new Error('AI response was truncated — JSON incomplete. Try a shorter CV or retry.');
     json = raw.slice(start, end + 1);
   }
-
-  // Strip control characters that break JSON.parse
+  // Strip control characters
   json = json
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '')
     .replace(/\r\n/g, '\\n')
     .replace(/\r/g, '\\n');
-
-  // Validate it parses before returning
   try {
     JSON.parse(json);
-  } catch (e) {
-    // Response was likely truncated — give a clear error
-    throw new Error('AI response was cut off mid-JSON (response too long). Try a shorter CV or retry.');
+  } catch {
+    throw new Error('AI response was cut off mid-JSON. Try a shorter CV or retry.');
   }
-
   return json;
 }
 
-const MASTER_SYSTEM_PROMPT = `You are a brutally honest senior recruiter, ATS architect, executive resume strategist, and interview coach with 20+ years experience at Fortune 500 companies and top executive search firms. You have reviewed 50,000+ resumes. You do NOT inflate scores. You score like a strict examiner, not a motivational coach.
-
-STRICT SCORING RULES — NON-NEGOTIABLE:
-- 90–100: Virtually flawless. Less than 1% of resumes qualify. Reserved for perfect execution across every dimension.
+// ── Shared scoring rules injected into both prompts ───────────────────────────
+const SCORING_RULES = `STRICT SCORING RULES — NON-NEGOTIABLE:
+- 90–100: Virtually flawless. Less than 1% of resumes qualify.
 - 80–89: Strong. Minor fixable issues only. Top 10% of candidates.
 - 70–79: Good but clear gaps present. Average strong candidate.
 - 60–69: Mediocre. Multiple issues actively hurting this resume.
 - Below 60: Significant problems. Would not shortlist without major rewrites.
 - HARD RULE: Overall score CANNOT exceed 78 if ANY single dimension scores below 70.
 - HARD RULE: Overall score CANNOT exceed 85 unless EVERY dimension scores above 80.
-- HARD RULE: A two-column layout OR photo present → Formatting score MAX 72, ATS score MAX 75.
-- HARD RULE: Any phrase repeated 3+ times (e.g. "end-to-end") → Vocabulary score MAX 75.
-- HARD RULE: No direct people management evidence → Leadership Signals score MAX 74.
-- HARD RULE: Claims without verifiable context or dates → Interview Risk score MAX 70.
-- HARD RULE: Bullet points longer than 3 lines → Recruiter Readability score MAX 76.
-- Be brutally honest. A generous score helps nobody. The candidate needs the truth to improve.
+- HARD RULE: Two-column layout OR photo → Formatting MAX 72, ATS MAX 75.
+- HARD RULE: Phrase repeated 3+ times → Vocabulary MAX 75.
+- HARD RULE: No direct people management evidence → Leadership MAX 74.
+- HARD RULE: Claims without verifiable context → Interview Risk MAX 70.
+- HARD RULE: Bullets longer than 3 lines → Recruiter Readability MAX 76.
 
 ANALYSIS RULES:
-- NEVER claim content is AI-generated — identify patterns as "recruiter perception risks" only
+- NEVER claim content is AI-generated — identify as "recruiter perception risks" only
 - NEVER accuse of lying — identify "credibility risks" as perception concerns
-- Focus on how recruiters THINK and FEEL when reading
-- Simulate the internal monologue of a senior recruiter
-- CRITICAL: Quote exact text from the CV when identifying issues. NEVER say "some bullets" or "certain sections" — always name the specific section and quote the specific text verbatim. If you cannot quote the exact text, do not raise the issue.
-- For bullet_quality: always include the FULL bullet text (not a truncated summary) so the user knows exactly which line to fix
-- For grammar/spelling issues: quote the exact phrase with the error, then show the correction
-- For quantification issues: quote the exact bullet lacking metrics, then suggest a specific metric to add
+- CRITICAL: Always quote exact CV text when identifying issues. Never say "some bullets".
+- For bullet issues: include the FULL bullet text verbatim so the user knows exactly which line to fix.`;
 
-Analyze the resume across ALL 18 dimensions:
-1. ATS compatibility & parse rate
-2. Recruiter readability & first impression
-3. Executive presence & seniority signals
-4. Leadership signals & ownership evidence
-5. Resume credibility & metric authenticity
-6. Interview risk detection
-7. Human authenticity & AI-pattern detection
-8. Career progression logic
-9. Skill evidence validation
-10. Resume narrative strength
-11. Quantified impact quality
-12. Vocabulary sophistication & diversity
-13. Formatting consistency
-14. Hiring confidence score
-15. Competitive benchmarking vs peers
-16. Tailoring readiness
-17. Interview defensibility of claims
-18. Hidden recruiter psychology triggers
+// ═══════════════════════════════════════════════════════════════════════════════
+// CALL 1 — CORE REPORT (70B model)
+// Scores, recruiter reaction, ATS, changes, dimensions, strengths
+// ~25K tokens total
+// ═══════════════════════════════════════════════════════════════════════════════
+const CORE_SYSTEM_PROMPT = `You are a brutally honest senior recruiter and ATS architect with 20+ years at Fortune 500 firms. You have reviewed 50,000+ resumes. You do NOT inflate scores.
 
-Return ONLY valid JSON matching this exact structure — no preamble, no markdown:
+${SCORING_RULES}
+
+Return ONLY valid JSON — no preamble, no markdown:
 
 {
   "overall_score": <0-100>,
   "grade": "<A+|A|A-|B+|B|B-|C+|C|D|F>",
-  "summary": "<3 sentence brutally honest recruiter-style assessment — lead with the biggest weakness first>",
+  "summary": "<3 sentence brutally honest assessment — lead with biggest weakness first>",
   "hiring_confidence": {
     "score": <0-100>,
     "verdict": "<strong_candidate|good_candidate|borderline|weak_candidate>",
@@ -129,28 +103,28 @@ Return ONLY valid JSON matching this exact structure — no preamble, no markdow
       "name": "<human name>",
       "score": <0-100>,
       "status": "<good|needs_work|poor>",
-      "issues": ["<specific issue — ALWAYS quote the exact CV text causing the issue in double quotes, e.g. \"Cross-functional coordination: Worked with...\": this bullet has no metric>"],
-      "tip": "<one specific actionable fix referencing the actual CV text — never generic>"
+      "issues": ["<specific issue — quote exact CV text verbatim>"],
+      "tip": "<one specific actionable fix — never generic>"
     }
   ],
   "changes": [
     {
-      "id": "<c1, c2...>",
+      "id": "<c1|c2|...>",
       "section": "<section name>",
       "type": "<weak_verb|ats|quantification|grammar|improvement|authenticity|recruiter_trust|interview_risk|leadership|credibility|narrative|executive_presence|humanization>",
-      "original": "<exact text from CV — must appear verbatim>",
+      "original": "<exact text from CV verbatim>",
       "suggested": "<improved version>",
-      "reason": "<why this improves recruiter trust or ATS score — be specific>",
+      "reason": "<why this improves recruiter trust or ATS>",
       "recruiter_insight": "<internal recruiter thought when seeing original>"
     }
   ],
   "ats_parse_analysis": {
     "parse_rate": <0-100>,
     "readability_score": <0-100>,
-    "issues": [{"section": "<section name>", "problem": "<specific formatting problem in that section>", "fix": "<exactly how to fix it>"}],
-    "problematic_sections": ["<section name>"],
-    "format_risks": ["<risk with location, e.g. 'Skills section: pipe-separated values A|B|C may not parse'>"],
-    "recommendations": ["<specific actionable recommendation>"]
+    "issues": [{"section": "<section>", "problem": "<specific problem>", "fix": "<how to fix>"}],
+    "problematic_sections": ["<section>"],
+    "format_risks": ["<risk with location>"],
+    "recommendations": ["<specific recommendation>"]
   },
   "recruiter_reaction": {
     "first_impression": "<honest first impression>",
@@ -160,6 +134,22 @@ Return ONLY valid JSON matching this exact structure — no preamble, no markdow
     "recruiter_read_time_estimate": "<e.g. 8 seconds>",
     "executive_presence_score": <0-100>
   },
+  "missing_keywords": ["<keyword>"],
+  "strengths": ["<strength — must reference specific CV evidence>"]
+}`;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// CALL 2 — DEEP INTEL (70B model)
+// Credibility, leadership, career story, peer benchmark, interview risks, hidden concerns
+// ~20K tokens total
+// ═══════════════════════════════════════════════════════════════════════════════
+const DEEP_INTEL_SYSTEM_PROMPT = `You are a brutally honest executive search consultant and interview coach with 20+ years at Fortune 500 firms. You detect credibility risks, leadership gaps, and interview landmines that most candidates miss.
+
+${SCORING_RULES}
+
+Return ONLY valid JSON — no preamble, no markdown:
+
+{
   "credibility_analysis": {
     "score": <0-100>,
     "strong_signals": ["<signal>"],
@@ -201,28 +191,6 @@ Return ONLY valid JSON matching this exact structure — no preamble, no markdow
     "unsupported_skills": ["<skill listed but never demonstrated>"],
     "skills_missing_evidence": ["<skill>"]
   },
-  "vocabulary_analysis": {
-    "repeated_words": [{"word": "<word>", "count": <n>, "alternatives": ["<alt>"]}],
-    "weak_phrases": ["<phrase>"],
-    "buzzwords": ["<buzzword>"],
-    "variety_score": <0-100>
-  },
-  "bullet_quality": {
-    "too_short": [{"text": "<exact bullet verbatim>", "word_count": <n>, "fix": "<suggested rewrite>"}],
-    "too_long": [{"text": "<exact bullet verbatim — first 120 chars>", "word_count": <n>, "fix": "<how to split it>"}],
-    "passive_voice": [{"text": "<exact bullet verbatim>", "fix": "<rewrite in active voice>"}],
-    "weak_openings": [{"verb": "<weak verb>", "bullet_start": "<first 8 words of bullet>", "replacement": "<stronger verb>"}],
-    "generic_bullets": [{"text": "<exact bullet verbatim>", "issue": "<why generic>", "fix": "<specific rewrite with metric placeholder>"}],
-    "recommended_structure": "Action + Context + Result"
-  },
-  "professionalism_checks": {
-    "file_name_score": <0-100>,
-    "date_consistency": "<assessment>",
-    "link_quality": "<assessment>",
-    "email_professionalism": "<assessment>",
-    "formatting_consistency": "<assessment>",
-    "presentation_quality": "<assessment>"
-  },
   "human_authenticity": {
     "score": <0-100>,
     "risk_level": "<low|medium|high>",
@@ -235,7 +203,7 @@ Return ONLY valid JSON matching this exact structure — no preamble, no markdow
     {
       "risk_type": "<timeline_overlap|metric_inflation|ownership_ambiguity|unsupported_claim|career_gap|scope_exaggeration>",
       "severity": "<high|medium|low>",
-      "detected_issue": "<what was detected>",
+      "detected_issue": "<what was detected — quote exact CV text>",
       "why_recruiters_ask": "<why this triggers questions>",
       "suggested_fix": "<how to address it>",
       "sample_interview_question": "<question a recruiter would ask>"
@@ -244,66 +212,98 @@ Return ONLY valid JSON matching this exact structure — no preamble, no markdow
   "interview_defensibility": {
     "high_risk_claims": [
       {
-        "claim": "<claim from CV>",
+        "claim": "<claim from CV verbatim>",
         "risk_reason": "<why hard to defend>",
         "prep_advice": "<how to prepare>",
         "difficulty_level": "<low|medium|high>"
       }
     ]
   },
-  "hidden_recruiter_concerns": ["<concern a recruiter would have but never say out loud>"],
-  "missing_keywords": ["<keyword>"],
-  "strengths": ["<strength — must reference specific CV evidence, not generic praise>"]
+  "hidden_recruiter_concerns": ["<concern a recruiter would have but never say out loud>"]
 }`;
 
-// Max CV length to prevent token overflow (Groq limit ~8000 tokens for CV)
+// ═══════════════════════════════════════════════════════════════════════════════
+// CALL 3 — BULLET & VOCABULARY CHECKS (8B model — pattern matching only)
+// bullet_quality, vocabulary_analysis, professionalism_checks
+// ~15K tokens total — uses fast 8B model
+// ═══════════════════════════════════════════════════════════════════════════════
+const BULLET_CHECK_SYSTEM_PROMPT = `You are a precise resume editor. Analyze bullet points and vocabulary for technical quality issues.
+Be exact — quote the full bullet text verbatim for every issue.
+Return ONLY valid JSON — no preamble, no markdown:
+
+{
+  "bullet_quality": {
+    "too_short": [{"text": "<exact bullet verbatim>", "word_count": <n>, "fix": "<suggested rewrite>"}],
+    "too_long": [{"text": "<exact bullet verbatim — full text>", "word_count": <n>, "fix": "<how to split it into two bullets>"}],
+    "passive_voice": [{"text": "<exact bullet verbatim>", "fix": "<rewrite in active voice>"}],
+    "weak_openings": [{"verb": "<weak verb>", "bullet_start": "<first 8 words of that bullet>", "replacement": "<stronger verb>"}],
+    "generic_bullets": [{"text": "<exact bullet verbatim>", "issue": "<why it is generic>", "fix": "<specific rewrite with metric placeholder>"}],
+    "recommended_structure": "Action + Context + Result"
+  },
+  "vocabulary_analysis": {
+    "repeated_words": [{"word": "<word>", "count": <n>, "alternatives": ["<alt1>", "<alt2>", "<alt3>"]}],
+    "weak_phrases": ["<exact phrase from CV>"],
+    "buzzwords": ["<buzzword found>"],
+    "variety_score": <0-100>
+  },
+  "professionalism_checks": {
+    "file_name_score": <0-100>,
+    "date_consistency": "<assessment>",
+    "link_quality": "<assessment>",
+    "email_professionalism": "<assessment>",
+    "formatting_consistency": "<assessment>",
+    "presentation_quality": "<assessment>"
+  }
+}`;
+
+// Max CV chars to prevent token overflow
 const MAX_CV_CHARS = 12000;
 
+// ── Main analyzeResume — 3 parallel calls ─────────────────────────────────────
 export async function analyzeResume(cvText: string): Promise<IntelligenceResult> {
-  // Trim CV if too long to prevent truncated responses
   const trimmedCV = cvText.length > MAX_CV_CHARS
-    ? cvText.slice(0, MAX_CV_CHARS) + '\n\n[CV truncated for analysis — first 12,000 characters used]'
+    ? cvText.slice(0, MAX_CV_CHARS) + '\n\n[CV trimmed for analysis]'
     : cvText;
 
-  const messages = [
-    { role: 'system', content: MASTER_SYSTEM_PROMPT },
-    {
-      role: 'user',
-      content: `Analyze this resume with full recruiter intelligence. Be strict and honest — do not inflate scores:\n\n${trimmedCV}`
-    },
-  ];
+  const userContent = `Analyze this resume. Be strict and honest — do not inflate scores:\n\n${trimmedCV}`;
+  const bulletUserContent = `Analyze the bullets and vocabulary in this resume. Quote every issue verbatim:\n\n${trimmedCV}`;
 
-  let lastError: Error | null = null;
+  // Run all 3 calls in parallel
+  const [coreRaw, deepRaw, bulletRaw] = await Promise.all([
+    backendCall('/api/career/analyze-cv', [
+      { role: 'system', content: CORE_SYSTEM_PROMPT },
+      { role: 'user',   content: userContent },
+    ]),
+    backendCall('/api/career/analyze-deep', [
+      { role: 'system', content: DEEP_INTEL_SYSTEM_PROMPT },
+      { role: 'user',   content: userContent },
+    ]),
+    backendCall('/api/career/analyze-bullets', [
+      { role: 'system', content: BULLET_CHECK_SYSTEM_PROMPT },
+      { role: 'user',   content: bulletUserContent },
+    ]),
+  ]);
 
-  // Retry up to 2 times on truncation errors
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    try {
-      const raw = await backendCall('/api/career/analyze-cv', messages);
-      const json = extractJSON(raw);
-      const result: IntelligenceResult = JSON.parse(json);
-      return result;
-    } catch (err: any) {
-      lastError = err;
-      const msg = err?.message || '';
-      // Only retry on truncation/parse errors, not auth errors
-      if (msg.includes('truncated') || msg.includes('cut off') || msg.includes('JSON')) {
-        console.warn(`[analyzeResume] Attempt ${attempt} failed: ${msg} — retrying...`);
-        // Wait 1s before retry
-        await new Promise(r => setTimeout(r, 1000));
-        continue;
-      }
-      throw err;
-    }
-  }
+  // Parse all 3 responses
+  const core   = JSON.parse(extractJSON(coreRaw));
+  const deep   = JSON.parse(extractJSON(deepRaw));
+  const bullet = JSON.parse(extractJSON(bulletRaw));
 
-  throw lastError || new Error('Analysis failed after retries');
+  // Merge into single IntelligenceResult
+  const result: IntelligenceResult = {
+    ...core,
+    ...deep,
+    ...bullet,
+  };
+
+  return result;
 }
 
 export async function analyzeJobMatch(cvText: string, jobDescription: string): Promise<JobMatchResult> {
   const messages = [
     {
       role: 'system',
-      content: `You are an expert recruiter comparing a candidate's CV against a job description.
+      content: `You are an expert recruiter comparing a CV against a job description.
 Return ONLY valid JSON — no preamble, no markdown:
 {
   "match_score": <0-100>,
@@ -311,7 +311,7 @@ Return ONLY valid JSON — no preamble, no markdown:
   "missing_keywords": ["<keyword in JD not in CV>"],
   "suggestions": [
     {
-      "id": "<j1, j2...>",
+      "id": "<j1|j2|...>",
       "section": "<section>",
       "suggestion": "<specific text to add>",
       "reason": "<reference exact JD language>",
@@ -327,7 +327,7 @@ Provide 5-8 targeted suggestions. Reference exact phrases from the JD.`,
     },
   ];
 
-  const raw = await backendCall('/api/career/analyze-job', messages);
+  const raw  = await backendCall('/api/career/analyze-job', messages);
   const json = extractJSON(raw);
   return JSON.parse(json);
 }
@@ -348,10 +348,10 @@ export async function generateCoverLetter(
     },
     credentials: 'include',
     body: JSON.stringify({
-      cv_text: cvText,
-      job_description: jobDescription,
-      user_name: userName,
-      user_role: userRole,
+      cv_text:              cvText,
+      job_description:      jobDescription,
+      user_name:            userName,
+      user_role:            userRole,
       approved_suggestions: approvedSuggestions,
     }),
   });
