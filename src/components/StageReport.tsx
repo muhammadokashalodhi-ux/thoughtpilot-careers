@@ -495,8 +495,12 @@ export default function StageReport() {
               passText={`Parsed at ${ats?.parse_rate}%. The ATS successfully extracted your experience, titles, and skills.`}
               failText={`Parse rate is ${ats?.parse_rate}%. The ATS is struggling to read sections — your experience may be invisible to recruiters.`}
             />
-            {ats?.issues?.map((iss: string, i: number) => <IssueItem key={i} text={iss} type="warn" />)}
-            {ats?.format_risks?.map((fr: string, i: number) => <IssueItem key={i} text={fr} type="error" />)}
+            {ats?.issues?.map((iss: any, i: number) => (
+              typeof iss === 'object'
+                ? <BulletQuote key={i} text={`${iss.section || ''}: ${iss.problem || ''}`} issue={iss.section || 'Issue'} fix={iss.fix} type="warn" />
+                : <IssueItem key={i} text={String(iss)} type="warn" />
+            ))}
+            {ats?.format_risks?.map((fr: any, i: number) => <IssueItem key={i} text={typeof fr === 'string' ? fr : JSON.stringify(fr)} type="error" />)}
             {(ats?.recommendations?.length || 0) > 0 && (
               <div style={{ marginTop: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Recommendations</div>
@@ -525,8 +529,12 @@ export default function StageReport() {
               passText="Strong quantification throughout. Your metrics give recruiters a clear picture of the scale you operate at."
               failText="Several bullets describe responsibilities without showing measurable impact. Recruiters cannot gauge your scale from duties alone."
             />
-            {getDimIssues('quantified_impact').map((iss: string, i: number) => <IssueItem key={i} text={iss} type="warn" />)}
-            {bq?.generic_bullets?.slice(0, 4).map((b: string, i: number) => (
+            {getDimIssues('quantified_impact').map((iss: any, i: number) => (
+              typeof iss === 'object'
+                ? <BulletQuote key={i} text={iss.text || JSON.stringify(iss)} issue={iss.issue || 'Issue'} fix={iss.fix} type="warn" />
+                : <IssueItem key={i} text={String(iss)} type="warn" />
+            ))}
+            {bq?.generic_bullets?.slice(0, 4).map((b: any, i: number) => (
               <BulletRow key={i} text={b} tag="No measurable impact" />
             ))}
             <div style={{ marginTop: 18, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
@@ -608,17 +616,23 @@ export default function StageReport() {
               passText="All bullets fall within the optimal 10–35 word range. Your resume is easy to scan."
               failText={`${(bq?.too_short?.length || 0) + (bq?.too_long?.length || 0)} bullets fall outside the recommended range and disrupt recruiter reading flow.`}
             />
-            {bq?.too_short?.slice(0, 4).map((b: string, i: number) => (
-              <BulletRow key={`s${i}`} text={b} tag={`Too short — ${b.split(' ').length} words (aim for 10–35)`} />
+            {bq?.too_short?.slice(0, 4).map((b: any, i: number) => (
+              typeof b === 'object'
+                ? <BulletQuote key={`s${i}`} text={b.text || ''} wordCount={b.word_count} issue={`Only ${b.word_count || '?'}w`} fix={b.fix} type="warn" />
+                : <BulletRow key={`s${i}`} text={String(b)} tag={`Too short — ${String(b).split(' ').length} words (aim for 10–35)`} />
             ))}
-            {bq?.too_long?.slice(0, 3).map((b: string, i: number) => (
+            {bq?.too_long?.slice(0, 3).map((b: any, i: number) => (
               <BulletRow key={`l${i}`} text={b} tag="Too long — split into two focused bullets" />
             ))}
             {(bq?.weak_openings?.length || 0) > 0 && (
               <div style={{ marginTop: 14, padding: '12px 16px', background: 'var(--amber-dim)', border: '1px solid rgba(245,166,35,0.2)', borderRadius: 8 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', marginBottom: 8 }}>WEAK OPENING WORDS</div>
                 <div className="flex" style={{ gap: 6, flexWrap: 'wrap' }}>
-                  {bq.weak_openings.map((w: string, i: number) => <span key={i} className="badge badge-amber">{w}</span>)}
+                  {bq.weak_openings.map((w: any, i: number) => (
+                    typeof w === 'object'
+                      ? <WeakVerbChip key={i} verb={w.verb || String(w)} bulletStart={w.bullet_start || ''} replacement={w.replacement || 'Led / Delivered / Built'} />
+                      : <span key={i} className="badge badge-amber">{String(w)}</span>
+                  ))}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>
                   Replace with strong action verbs: Led, Delivered, Built, Reduced, Negotiated, Implemented, Drove
