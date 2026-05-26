@@ -210,10 +210,25 @@ function Verdict({ pass, passText, failText }: { pass: boolean; passText: string
   );
 }
 
+// ─── Safe string helper ─────────────────────────────────────────────────────
+function safeStr(val: any): string {
+  if (val === null || val === undefined) return '';
+  if (typeof val === 'string') return val;
+  if (typeof val === 'object') {
+    // Handle {text, issue, fix} objects from new Groq format
+    if (val.text) return `${val.text}${val.issue ? ` — ${val.issue}` : ''}${val.fix ? ` → ${val.fix}` : ''}`;
+    if (val.problem) return `${val.section ? val.section + ': ' : ''}${val.problem}${val.fix ? ` → ${val.fix}` : ''}`;
+    return JSON.stringify(val);
+  }
+  return String(val);
+}
+
 // ─── Issue item ─────────────────────────────────────────────────────────────
-function IssueItem({ text, type = 'warn' }: { text: string; type?: 'warn' | 'error' | 'info' }) {
+function IssueItem({ text, type = 'warn' }: { text: any; type?: 'warn' | 'error' | 'info' }) {
   const icon = type === 'error' ? '⛔' : type === 'info' ? 'ℹ️' : '⚠️';
   const color = type === 'error' ? 'var(--red)' : type === 'info' ? 'var(--accent)' : 'var(--amber)';
+  // If it's an object with text/issue/fix, render as BulletQuote-style inline
+  const displayText = safeStr(text);
   return (
     <div style={{
       display: 'flex', alignItems: 'flex-start', gap: 10, padding: '10px 14px',
@@ -222,7 +237,7 @@ function IssueItem({ text, type = 'warn' }: { text: string; type?: 'warn' | 'err
       border: `1px solid ${type === 'error' ? 'rgba(255,91,91,0.2)' : type === 'info' ? 'rgba(124,111,247,0.2)' : 'rgba(245,166,35,0.2)'}`,
     }}>
       <span style={{ fontSize: 14, flexShrink: 0 }}>{icon}</span>
-      <span style={{ fontSize: 13, color, lineHeight: 1.55 }}>{text}</span>
+      <span style={{ fontSize: 13, color, lineHeight: 1.55 }}>{displayText}</span>
     </div>
   );
 }
@@ -504,7 +519,7 @@ export default function StageReport() {
             {(ats?.recommendations?.length || 0) > 0 && (
               <div style={{ marginTop: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Recommendations</div>
-                {ats.recommendations.map((rec: string, i: number) => <IssueItem key={i} text={rec} type="info" />)}
+                {ats.recommendations.map((rec: any, i: number) => <IssueItem key={i} text={safeStr(rec)} type="info" />)}
               </div>
             )}
             <div style={{ marginTop: 18, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
@@ -595,7 +610,7 @@ export default function StageReport() {
               passText="No critical grammar or tense issues detected. Your resume reads cleanly and professionally."
               failText="Readability issues detected. Inconsistent tense, weak phrasing, and unclear structures all affect recruiter trust."
             />
-            {getDimIssues('recruiter_readability').map((iss: string, i: number) => <IssueItem key={i} text={iss} type="warn" />)}
+            {getDimIssues('recruiter_readability').map((iss: any, i: number) => <IssueItem key={i} text={safeStr(iss)} type="warn" />)}
             <div style={{ marginTop: 18, borderTop: '1px solid var(--border)', paddingTop: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>FAQs</div>
               <FAQ q="Past or present tense?" a="Current roles: present tense. All previous roles: past tense. Mixing tenses within the same role is one of the most common errors recruiter notice." />
@@ -733,7 +748,7 @@ export default function StageReport() {
               passText="No major format risks detected. Your resume structure is ATS-safe."
               failText={`${ats?.format_risks?.length} format issue(s) detected that may cause ATS parsing failures.`}
             />
-            {ats?.format_risks?.map((fr: string, i: number) => <IssueItem key={i} text={fr} type="error" />)}
+            {ats?.format_risks?.map((fr: any, i: number) => <IssueItem key={i} text={fr} type="error" />)}
             {pc?.formatting_consistency && <IssueItem text={pc.formatting_consistency} type="info" />}
             <FAQ q="Are two-column resumes ATS-safe?" a="No. Most ATS systems read left-to-right, top-to-bottom. Two-column layouts cause information to merge between columns, making both sections unreadable to the parser." />
             <FAQ q="Can I use icons and graphics?" a="Not in resumes submitted through ATS portals. Save the designed version for direct submissions and networking events only." />
@@ -806,7 +821,7 @@ export default function StageReport() {
             {(ca?.suspicious_claims?.length || 0) > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Hiring Managers May Question</div>
-                {ca.suspicious_claims.map((s: string, i: number) => <IssueItem key={i} text={s} type="warn" />)}
+                {ca.suspicious_claims.map((s: any, i: number) => <IssueItem key={i} text={s} type="warn" />)}
               </div>
             )}
             {(ca?.unsupported_skills?.length || 0) > 0 && (
@@ -905,7 +920,7 @@ export default function StageReport() {
             {(pb?.missing_common_skills?.length || 0) > 0 && (
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Skills Typical Peers Have That You're Missing</div>
-                {pb.missing_common_skills.map((s: string, i: number) => <IssueItem key={i} text={s} type="warn" />)}
+                {pb.missing_common_skills.map((s: any, i: number) => <IssueItem key={i} text={s} type="warn" />)}
               </div>
             )}
             <FAQ q="What does market position mean?" a="An estimate of where your profile ranks against other candidates with similar titles and experience applying for the same types of roles. Top 20% means your profile is stronger than roughly 80% of comparable candidates." />
@@ -962,7 +977,7 @@ export default function StageReport() {
                 <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>{ha?.authenticity_summary}</p>
               </div>
             </div>
-            {ha?.ai_like_patterns?.map((p: string, i: number) => <IssueItem key={i} text={p} type="warn" />)}
+            {ha?.ai_like_patterns?.map((p: any, i: number) => <IssueItem key={i} text={p} type="warn" />)}
             {(ha?.recruiter_suspicion_triggers?.length || 0) > 0 && (
               <div style={{ marginTop: 12, marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Recruiter Suspicion Triggers</div>
@@ -1017,7 +1032,7 @@ export default function StageReport() {
               </div>
             </div>
             <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.65, marginBottom: 14 }}>{cs?.career_arc_summary}</p>
-            {cs?.narrative_gaps?.map((g: string, i: number) => <IssueItem key={i} text={g} type="warn" />)}
+            {cs?.narrative_gaps?.map((g: any, i: number) => <IssueItem key={i} text={g} type="warn" />)}
             <FAQ q="How do I show progression without title changes?" a="Show what expanded inside each role: larger budgets, more complex stakeholders, broader geography, higher-stakes decisions. Progression is about scope and impact, not just title." />
           </ReportSection>
 
@@ -1097,13 +1112,13 @@ export default function StageReport() {
             {(ls?.missing_signals?.length || 0) > 0 && (
               <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--red)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Missing Leadership Evidence</div>
-                {ls.missing_signals.map((s: string, i: number) => <IssueItem key={i} text={s} type="error" />)}
+                {ls.missing_signals.map((s: any, i: number) => <IssueItem key={i} text={s} type="error" />)}
               </div>
             )}
             {(ls?.improvement_suggestions?.length || 0) > 0 && (
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>How to Strengthen Leadership Framing</div>
-                {ls.improvement_suggestions.map((s: string, i: number) => <IssueItem key={i} text={s} type="info" />)}
+                {ls.improvement_suggestions.map((s: any, i: number) => <IssueItem key={i} text={s} type="info" />)}
               </div>
             )}
             <FAQ q="Can I show leadership without being a manager?" a="Yes. Leadership signals include: owning a project end-to-end, driving cross-functional decisions, managing vendor relationships with authority, or being the go-to expert for a strategic domain." />
@@ -1143,7 +1158,7 @@ export default function StageReport() {
                 {rr?.trust_level === 'high' ? '✓ High Trust' : rr?.trust_level === 'medium' ? '⚠ Medium Trust' : '⛔ Low Trust'}
               </div>
             </div>
-            {rr?.possible_concerns?.map((c: string, i: number) => <IssueItem key={i} text={c} type="warn" />)}
+            {rr?.possible_concerns?.map((c: any, i: number) => <IssueItem key={i} text={c} type="warn" />)}
             <FAQ q="What signals executive presence on a resume?" a="Confident, direct language without hedging. Strategic framing at business level, not task level. A concise summary that positions you rather than listing duties. Clean structure that conveys control." />
           </ReportSection>
 

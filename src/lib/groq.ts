@@ -30,12 +30,22 @@ async function backendCall(endpoint: string, messages: object[]): Promise<string
 }
 
 function extractJSON(raw: string): string {
+  let json = raw;
   const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fence) return fence[1].trim();
-  const start = raw.indexOf('{');
-  const end = raw.lastIndexOf('}');
-  if (start !== -1 && end !== -1) return raw.slice(start, end + 1);
-  return raw.trim();
+  if (fence) json = fence[1].trim();
+  else {
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start !== -1 && end !== -1) json = raw.slice(start, end + 1);
+    else json = raw.trim();
+  }
+  // Strip control characters that break JSON.parse (tabs/newlines inside strings)
+  // Replace literal \n and \t inside JSON string values with escaped versions
+  json = json
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '') // strip non-printable control chars
+    .replace(/\r\n/g, '\\n')  // normalize CRLF inside strings
+    .replace(/\r/g, '\\n');   // normalize CR inside strings
+  return json;
 }
 
 const MASTER_SYSTEM_PROMPT = `You are a brutally honest senior recruiter, ATS architect, executive resume strategist, and interview coach with 20+ years experience at Fortune 500 companies and top executive search firms. You have reviewed 50,000+ resumes. You do NOT inflate scores. You score like a strict examiner, not a motivational coach.
