@@ -4,10 +4,9 @@ import axios from 'axios';
 import { useCareerStore } from '@/store/career';
 import { analyzeJobMatch, generateCoverLetter } from '@/lib/groq';
 import ScoreRing from './ScoreRing';
-import { exportCV, getFinalCV } from '@/lib/export';
+import { exportCV, getFinalCV, exportCoverLetter } from '@/lib/export';
 import { renderTemplate, TEMPLATES, TemplateId } from '@/lib/templates';
 import { launchConfetti } from '@/lib/confetti';
-import { exportCoverLetter } from '@/lib/export';
 
 const PRIORITY_BADGE: Record<string, string> = {
   high: 'badge-red', medium: 'badge-amber', low: 'badge-neutral',

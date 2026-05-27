@@ -121,6 +121,18 @@ export function exportAsWord(cv: ParsedCV, filename = 'cv.rtf'): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// ── Export cover letter as .txt ──────────────────────────────────────────────
+export function exportCoverLetter(text: string, userName = 'cover-letter'): void {
+  const filename = `${userName.toLowerCase().replace(/\s+/g, '-')}-cover-letter.txt`;
+  const blob = new Blob([text], { type: 'text/plain' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // ── Main export function ──────────────────────────────────────────────────
 export function exportCV(
   rawCvText: string,
