@@ -106,6 +106,10 @@ ANALYSIS RULES:
 const CORE_SYSTEM_PROMPT = `You are a brutally honest senior recruiter and ATS architect with 20+ years at Fortune 500 firms. You have reviewed 50,000+ resumes. You do NOT inflate scores.
 
 ${SCORING_RULES}
+ANALYSIS RULES:
+- Quote exact CV text verbatim for every issue — never say "some bullets"
+- Score like a strict examiner — a generous score helps nobody
+- Lead summary with the biggest weakness first
 
 Return ONLY valid JSON — no preamble, no markdown:
 
@@ -168,7 +172,11 @@ Return ONLY valid JSON — no preamble, no markdown:
 // ═══════════════════════════════════════════════════════════════════════════════
 const DEEP_INTEL_SYSTEM_PROMPT = `You are a brutally honest executive search consultant and interview coach with 20+ years at Fortune 500 firms. You detect credibility risks, leadership gaps, and interview landmines that most candidates miss.
 
-${SCORING_RULES}
+RULES:
+- Quote exact CV text verbatim when identifying any issue
+- Never say "some bullets" — always cite the specific text
+- Never accuse of lying — frame as "credibility risks" or "perception concerns"
+- Be specific: name the company, role, date, or claim you're flagging
 
 Return ONLY valid JSON — no preamble, no markdown:
 
@@ -282,44 +290,101 @@ Return ONLY valid JSON — no preamble, no markdown:
 // Max CV chars to prevent token overflow
 const MAX_CV_CHARS = 12000;
 
+// Extract only experience + skills from CV for deep intel call
+// Reduces tokens by ~35% — deep intel doesn't need contact/edu/certs
+function extractExperienceSection(cvText: string): string {
+  const lines = cvText.split('\n');
+  const EXPERIENCE_HEADERS = /^(experience|work|employment|professional|career|positions|skills|competencies|expertise)/i;
+  const SKIP_HEADERS = /^(education|certifications|certificates|languages|interests|hobbies|references|awards|volunteer)/i;
+  const HEADER_LINE = /^[A-Z][A-Z\s&]{3,}$/;
+
+  let inRelevantSection = false;
+  let result: string[] = [];
+
+  // Always include first 15 lines (name, headline, summary)
+  result.push(...lines.slice(0, 15));
+
+  for (let i = 15; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) { if (inRelevantSection) result.push(''); continue; }
+
+    const isHeader = HEADER_LINE.test(line) || line.length < 40;
+
+    if (isHeader) {
+      if (EXPERIENCE_HEADERS.test(line)) {
+        inRelevantSection = true;
+        result.push(line);
+      } else if (SKIP_HEADERS.test(line)) {
+        inRelevantSection = false;
+      } else if (inRelevantSection) {
+        result.push(line);
+      }
+    } else if (inRelevantSection) {
+      result.push(line);
+    }
+  }
+
+  const extracted = result.join('\n').trim();
+  // Fallback: if extraction too short, return full CV
+  return extracted.length > 500 ? extracted : cvText;
+}
+
 // ── Main analyzeResume — 3 parallel calls ─────────────────────────────────────
 export async function analyzeResume(cvText: string): Promise<IntelligenceResult> {
   const trimmedCV = cvText.length > MAX_CV_CHARS
     ? cvText.slice(0, MAX_CV_CHARS) + '\n\n[CV trimmed for analysis]'
     : cvText;
 
-  const userContent = `Analyze this resume. Be strict and honest — do not inflate scores:\n\n${trimmedCV}`;
+  // For deep intel (credibility, leadership, interview risks) we only need
+  // the experience section + skills — not contact info, education, certifications
+  // This cuts ~2,400 tokens from the deep call
+  const trimmedCVForDeep = extractExperienceSection(trimmedCV);
+
+  const userContent      = `Analyze this resume. Be strict and honest — do not inflate scores:\n\n${trimmedCV}`;
+  const deepUserContent  = `Analyze credibility, leadership signals, and interview risks in this resume. Quote exact text for every issue:\n\n${trimmedCVForDeep}`;
   const bulletUserContent = `Analyze the bullets and vocabulary in this resume. Quote every issue verbatim:\n\n${trimmedCV}`;
 
-  // Stagger calls by 1s to avoid simultaneous 429s on Groq
-  // Bullet check (8B) fires immediately — different model/quota
-  // Core and deep are staggered by 1s between each other
+  // Stagger calls to avoid simultaneous 429s
+  // Wrap each in a timeout so one failure doesn't hang forever
+  const withTimeout = (promise: Promise<string>, ms: number, label: string): Promise<string | null> =>
+    Promise.race([
+      promise.then(r => r).catch(e => { console.warn(`[groq] ${label} failed:`, e.message); return null; }),
+      sleep(ms).then(() => { console.warn(`[groq] ${label} timed out after ${ms}ms`); return null; }),
+    ]);
+
   const bulletPromise = backendCall('/api/career/analyze-bullets', [
     { role: 'system', content: BULLET_CHECK_SYSTEM_PROMPT },
     { role: 'user',   content: bulletUserContent },
   ]);
 
-  await sleep(800); // slight stagger before 70B calls
+  await sleep(800);
   const corePromise = backendCall('/api/career/analyze-cv', [
     { role: 'system', content: CORE_SYSTEM_PROMPT },
     { role: 'user',   content: userContent },
   ]);
 
-  await sleep(1200); // stagger core vs deep
+  await sleep(1200);
   const deepPromise = backendCall('/api/career/analyze-deep', [
     { role: 'system', content: DEEP_INTEL_SYSTEM_PROMPT },
-    { role: 'user',   content: userContent },
+    { role: 'user',   content: deepUserContent },
   ]);
 
-  // Wait for all to complete
-  const [coreRaw, deepRaw, bulletRaw] = await Promise.all([corePromise, deepPromise, bulletPromise]);
+  // Wait for all — 90s timeout per call, null on failure
+  const [coreRaw, deepRaw, bulletRaw] = await Promise.all([
+    withTimeout(corePromise,   90000, 'analyze-cv'),
+    withTimeout(deepPromise,   90000, 'analyze-deep'),
+    withTimeout(bulletPromise, 45000, 'analyze-bullets'),
+  ]);
 
-  // Parse all 3 responses
-  const core   = JSON.parse(extractJSON(coreRaw));
-  const deep   = JSON.parse(extractJSON(deepRaw));
-  const bullet = JSON.parse(extractJSON(bulletRaw));
+  // Core is mandatory — fail if it didn't return
+  if (!coreRaw) throw new Error('Core analysis failed — please retry');
 
-  // Merge into single IntelligenceResult
+  // Parse all 3 responses — deep and bullet are optional fallbacks
+  const core   = JSON.parse(extractJSON(coreRaw!));
+  const deep   = deepRaw   ? (() => { try { return JSON.parse(extractJSON(deepRaw));   } catch { return {}; } })() : {};
+  const bullet = bulletRaw ? (() => { try { return JSON.parse(extractJSON(bulletRaw)); } catch { return {}; } })() : {};
+
+  // Merge — core is authoritative, deep and bullet fill in extra sections
   const result: IntelligenceResult = {
     ...core,
     ...deep,
