@@ -373,7 +373,7 @@ export function parseCV(rawText: string): ParsedCV {
   result.sectionOrder = sectionOrder;
 
   // Deduplicate skills
-  result.skills = [...new Set(result.skills.filter(s => s.length > 1))];
+  result.skills = Array.from(new Set(result.skills.filter(s => s.length > 1)));
 
   return result;
 }
