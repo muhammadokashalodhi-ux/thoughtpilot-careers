@@ -143,7 +143,7 @@ export default function StageExport() {
     setCoverLetterLoading(true); setClError('');
     try {
       const approved = jobSuggestions.filter((s: any) => s.status === 'approved').map((s: any) => s.suggestion);
-      const cl = await generateCoverLetter(cvText, jobDescription, userName, handoff?.profile?.user_role || 'Professional', approved);
+      const cl = await generateCoverLetter(cvText, jobDescription, userName, handoff?.profile?.role || 'Professional', approved);
       setCoverLetter(cl);
     } catch (e: any) { setClError(e.message || 'Cover letter generation failed.'); }
     finally { setCoverLetterLoading(false); }
