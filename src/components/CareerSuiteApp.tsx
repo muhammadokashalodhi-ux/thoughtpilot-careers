@@ -9,7 +9,7 @@ const STAGES: { num: Stage; label: string; icon: string }[] = [
   { num: 1, label: 'Upload', icon: '📄' },
   { num: 2, label: 'Scanning', icon: '🤖' },
   { num: 3, label: 'Full Report', icon: '📊' },
-  { num: 7, label: 'Export', icon: '⬇️' },
+  { num: 7, label: 'Job Match', icon: '🎯' },
 ];
 
 function ProgressBar({ current }: { current: Stage }) {
@@ -118,7 +118,7 @@ export default function CareerSuiteApp() {
         marginTop: 60, padding: '20px 24px', textAlign: 'center',
         borderTop: '1px solid var(--border)', fontSize: 12, color: 'var(--text3)',
       }}>
-        ThoughtPilot Recruiter Intelligence · Powered by Groq AI ·{' '}
+        ThoughtPilot Career Suite · AI Recruiter Intelligence ·{' '}
         <a href="https://thoughtpilotai.com" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
           thoughtpilotai.com
         </a>
