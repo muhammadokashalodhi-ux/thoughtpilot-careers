@@ -225,7 +225,7 @@ export interface HandoffData {
   cv_prefill: string;
 }
 
-export type ExportTemplate = 'classic' | 'modern' | 'minimal' | 'executive' | 'compact';
+export type ExportTemplate = 'classic' | 'modern' | 'minimal' | 'executive' | 'compact' | 'classic-navy' | 'modern-teal' | 'minimal-dark' | 'executive-red' | 'tech-sidebar';
 
 interface CareerStore {
   handoff: HandoffData | null;
@@ -329,7 +329,7 @@ export const useCareerStore = create<CareerStore>((set, get) => ({
   coverLetterLoading: false,
   setCoverLetterLoading: (v) => set({ coverLetterLoading: v }),
 
-  selectedTemplate: 'classic',
+  selectedTemplate: 'classic-navy',
   setSelectedTemplate: (t) => set({ selectedTemplate: t }),
 
   getApprovedChanges: () => get().changes.filter((c) => c.status === 'approved'),
