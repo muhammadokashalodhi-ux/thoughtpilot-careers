@@ -344,6 +344,20 @@ export default function StageReport() {
   const { intelligenceResult, changes, setStage, approveChange, discardChange, editChange, approveAll } = useCareerStore();
   const [activeSection, setActiveSection] = useState('ats-parse');
   const [changeFilter, setChangeFilter] = useState<'all' | 'pending' | 'approved' | 'discarded'>('all');
+  const lastScrollY = useRef(0);
+
+  // Hide progress bar on scroll down, show on scroll up
+  useEffect(() => {
+    function onScroll() {
+      const current = window.scrollY;
+      const shouldHide = current > 120 && current > lastScrollY.current;
+      const pb = document.getElementById('cs-progress-bar');
+      if (pb) pb.classList.toggle('hidden', shouldHide);
+      lastScrollY.current = current;
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   if (!intelligenceResult) return null;
 
@@ -469,8 +483,19 @@ export default function StageReport() {
       {/* Layout */}
       <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 20, alignItems: 'start' }}>
 
-        {/* Sidebar */}
-        <div style={{ position: 'sticky', top: 72, background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '16px 12px' }}>
+        {/* Sidebar — independent scroll */}
+        <div style={{
+          position: 'sticky',
+          top: 'calc(60px + env(safe-area-inset-top, 0px) + 8px)',
+          height: 'calc(100vh - 100px)',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          background: 'var(--bg2)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '16px 12px',
+          scrollbarWidth: 'thin',
+        }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, paddingLeft: 4 }}>Report Sections</div>
           {NAV.map(group => (
             <NavGroup key={group.label} {...group} activeSection={activeSection} onSelect={scrollTo} />
