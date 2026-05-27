@@ -8,25 +8,48 @@ function getToken(): string {
   return match ? decodeURIComponent(match[1]) : '';
 }
 
-async function backendCall(endpoint: string, messages: object[]): Promise<string> {
+async function sleep(ms: number) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function backendCall(endpoint: string, messages: object[], retries = 3): Promise<string> {
   const token = getToken();
-  const res = await fetch(`${API}${endpoint}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    credentials: 'include',
-    body: JSON.stringify({ messages }),
-  });
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`API error: ${res.status} — ${err}`);
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const res = await fetch(`${API}${endpoint}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      credentials: 'include',
+      body: JSON.stringify({ messages }),
+    });
+
+    // 429 — rate limited: wait and retry
+    if (res.status === 429) {
+      const retryAfter = parseInt(res.headers.get('retry-after') || '30', 10);
+      const waitMs = Math.min(retryAfter * 1000, attempt * 12000); // cap at 36s
+      console.warn(`[groq] 429 on ${endpoint} — waiting ${waitMs}ms (attempt ${attempt}/${retries})`);
+      if (attempt < retries) {
+        await sleep(waitMs);
+        continue;
+      }
+      throw new Error('Rate limit reached — please wait 30 seconds and try again');
+    }
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`API error: ${res.status} — ${err}`);
+    }
+
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content;
+    if (!content) throw new Error('Empty response from AI');
+    return content;
   }
-  const data = await res.json();
-  const content = data.choices?.[0]?.message?.content;
-  if (!content) throw new Error('Empty response from AI');
-  return content;
+
+  throw new Error('Analysis failed after retries — please try again');
 }
 
 function extractJSON(raw: string): string {
@@ -268,21 +291,28 @@ export async function analyzeResume(cvText: string): Promise<IntelligenceResult>
   const userContent = `Analyze this resume. Be strict and honest — do not inflate scores:\n\n${trimmedCV}`;
   const bulletUserContent = `Analyze the bullets and vocabulary in this resume. Quote every issue verbatim:\n\n${trimmedCV}`;
 
-  // Run all 3 calls in parallel
-  const [coreRaw, deepRaw, bulletRaw] = await Promise.all([
-    backendCall('/api/career/analyze-cv', [
-      { role: 'system', content: CORE_SYSTEM_PROMPT },
-      { role: 'user',   content: userContent },
-    ]),
-    backendCall('/api/career/analyze-deep', [
-      { role: 'system', content: DEEP_INTEL_SYSTEM_PROMPT },
-      { role: 'user',   content: userContent },
-    ]),
-    backendCall('/api/career/analyze-bullets', [
-      { role: 'system', content: BULLET_CHECK_SYSTEM_PROMPT },
-      { role: 'user',   content: bulletUserContent },
-    ]),
+  // Stagger calls by 1s to avoid simultaneous 429s on Groq
+  // Bullet check (8B) fires immediately — different model/quota
+  // Core and deep are staggered by 1s between each other
+  const bulletPromise = backendCall('/api/career/analyze-bullets', [
+    { role: 'system', content: BULLET_CHECK_SYSTEM_PROMPT },
+    { role: 'user',   content: bulletUserContent },
   ]);
+
+  await sleep(800); // slight stagger before 70B calls
+  const corePromise = backendCall('/api/career/analyze-cv', [
+    { role: 'system', content: CORE_SYSTEM_PROMPT },
+    { role: 'user',   content: userContent },
+  ]);
+
+  await sleep(1200); // stagger core vs deep
+  const deepPromise = backendCall('/api/career/analyze-deep', [
+    { role: 'system', content: DEEP_INTEL_SYSTEM_PROMPT },
+    { role: 'user',   content: userContent },
+  ]);
+
+  // Wait for all to complete
+  const [coreRaw, deepRaw, bulletRaw] = await Promise.all([corePromise, deepPromise, bulletPromise]);
 
   // Parse all 3 responses
   const core   = JSON.parse(extractJSON(coreRaw));
