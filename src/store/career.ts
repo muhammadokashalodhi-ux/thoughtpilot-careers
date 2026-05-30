@@ -223,6 +223,9 @@ export interface HandoffData {
     credentials: string[];
   };
   cv_prefill: string;
+  // Phase 6 — cached analysis from backend
+  cv_analysis_cache?: any;
+  cv_analyzed_at?: string;
 }
 
 export type ExportTemplate = 'classic' | 'modern' | 'minimal' | 'executive' | 'compact' | 'classic-navy' | 'modern-teal' | 'minimal-dark' | 'executive-red' | 'tech-sidebar';
@@ -274,6 +277,11 @@ interface CareerStore {
 
   getApprovedChanges: () => CVChange[];
   getFinalCvText: () => string;
+  restoreFromCache: (cache: any) => void;
+
+  // Job match cache
+  lastJobMatchHash: string;
+  setLastJobMatchHash: (h: string) => void;
 }
 
 export const useCareerStore = create<CareerStore>((set, get) => ({
@@ -341,4 +349,29 @@ export const useCareerStore = create<CareerStore>((set, get) => ({
     });
     return final;
   },
+
+  // Restore full analysis state from backend cache
+  restoreFromCache: (cache: any) => {
+    if (!cache) return;
+    try {
+      // cache is the raw Groq response — parse the content string
+      const content = cache?.choices?.[0]?.message?.content;
+      if (!content) return;
+      const parsed: IntelligenceResult = typeof content === 'string'
+        ? JSON.parse(content)
+        : content;
+      if (!parsed?.overall_score) return;
+      set({
+        intelligenceResult: parsed,
+        changes: parsed.changes || [],
+        stage: 3, // jump straight to report
+      });
+      console.log('[career] ✅ Restored analysis from cache — score:', parsed.overall_score);
+    } catch (e) {
+      console.warn('[career] Cache restore failed:', e);
+    }
+  },
+
+  lastJobMatchHash: '',
+  setLastJobMatchHash: (h) => set({ lastJobMatchHash: h }),
 }));

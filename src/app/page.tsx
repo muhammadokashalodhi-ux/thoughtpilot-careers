@@ -190,7 +190,34 @@ function LoginScreen() {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function Page() {
-  const { handoff, setHandoff, authLoading, setAuthLoading } = useCareerStore();
+  const { handoff, setHandoff, authLoading, setAuthLoading, restoreFromCache } = useCareerStore();
+
+  // ── Inactivity logout — mirrors main app behaviour ──────────────────────────
+  useEffect(() => {
+    if (!handoff) return;
+
+    const INACTIVITY_MS = 5 * 60 * 1000; // 5 minutes
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    function resetTimer() {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        // Clear cookie and redirect to login
+        Cookies.remove('tp_token', { domain: COOKIE_DOMAIN });
+        Cookies.remove('tp_token');
+        window.location.href = `${APP_URL}/login?redirect=${encodeURIComponent(window.location.href)}`;
+      }, INACTIVITY_MS);
+    }
+
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click'];
+    events.forEach(e => window.addEventListener(e, resetTimer, { passive: true }));
+    resetTimer();
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      events.forEach(e => window.removeEventListener(e, resetTimer));
+    };
+  }, [handoff]);
 
   useEffect(() => {
     // Apply saved theme on mount
@@ -223,6 +250,19 @@ export default function Page() {
           withCredentials: true,
         });
         setHandoff(data);
+
+        // Step 4: Restore cached analysis if available
+        if (data.cv_analysis_cache) {
+          const cachedAt = data.cv_analyzed_at ? new Date(data.cv_analyzed_at) : null;
+          const ageHours = cachedAt
+            ? (Date.now() - cachedAt.getTime()) / (1000 * 60 * 60)
+            : 999;
+
+          if (ageHours < 168) { // 7 days — matches backend cache TTL
+            restoreFromCache(data.cv_analysis_cache);
+            console.log(`[career] Restored cached analysis (${Math.round(ageHours)}h old)`);
+          }
+        }
       } catch (err) {
         Cookies.remove('tp_token', { domain: COOKIE_DOMAIN });
         Cookies.remove('tp_token');
