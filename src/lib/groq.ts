@@ -287,6 +287,48 @@ Return ONLY valid JSON — no preamble, no markdown:
   }
 }`;
 
+// ── SessionStorage cache — survives inactivity logout within same tab ───────
+const ANALYSIS_CACHE_KEY = 'tp_cs_analysis';
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+function cvHash(text: string): string {
+  // Simple hash from first+last 100 chars + length
+  const sample = text.slice(0, 100) + text.slice(-100) + text.length;
+  let h = 0;
+  for (let i = 0; i < sample.length; i++) {
+    h = (Math.imul(31, h) + sample.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h).toString(36);
+}
+
+export function saveAnalysisToCache(cvText: string, result: IntelligenceResult): void {
+  if (typeof sessionStorage === 'undefined') return;
+  try {
+    sessionStorage.setItem(ANALYSIS_CACHE_KEY, JSON.stringify({
+      hash:     cvHash(cvText),
+      result,
+      savedAt:  Date.now(),
+    }));
+  } catch {}
+}
+
+export function loadAnalysisFromCache(cvText: string): IntelligenceResult | null {
+  if (typeof sessionStorage === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(ANALYSIS_CACHE_KEY);
+    if (!raw) return null;
+    const { hash, result, savedAt } = JSON.parse(raw);
+    if (Date.now() - savedAt > CACHE_TTL_MS) return null;    // expired
+    if (hash !== cvHash(cvText)) return null;                 // different CV
+    return result as IntelligenceResult;
+  } catch { return null; }
+}
+
+export function clearAnalysisCache(): void {
+  if (typeof sessionStorage === 'undefined') return;
+  try { sessionStorage.removeItem(ANALYSIS_CACHE_KEY); } catch {}
+}
+
 // Max CV chars to prevent token overflow
 const MAX_CV_CHARS = 12000;
 
@@ -390,6 +432,9 @@ export async function analyzeResume(cvText: string): Promise<IntelligenceResult>
     ...deep,
     ...bullet,
   };
+
+  // Save to sessionStorage — survives inactivity logout within same browser tab
+  saveAnalysisToCache(cvText, result);
 
   return result;
 }

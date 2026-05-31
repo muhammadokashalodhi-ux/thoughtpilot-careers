@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { useCareerStore } from '@/store/career';
-import { analyzeResume } from '@/lib/groq';
+import { analyzeResume, loadAnalysisFromCache } from '@/lib/groq';
 
 const STEPS = [
   { label: 'Parsing resume structure', icon: '📄', duration: 700 },
@@ -45,6 +45,19 @@ export default function StageAnalysis() {
       }, dur);
     };
     advanceStep();
+
+    // Check sessionStorage cache first — avoids burning tokens on inactivity re-login
+    const cached = loadAnalysisFromCache(cvText);
+    if (cached) {
+      console.log('[StageAnalysis] Using cached analysis result');
+      const changes = cached.changes.map((c) => ({ ...c, status: 'pending' as const }));
+      setIntelligenceResult(cached);
+      setChanges(changes);
+      setProgress(100);
+      setDone(true);
+      setTimeout(() => setStage(3), 800);
+      return;
+    }
 
     analyzeResume(cvText)
       .then((result) => {
